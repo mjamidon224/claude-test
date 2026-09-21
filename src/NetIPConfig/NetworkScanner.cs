@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
@@ -20,6 +21,12 @@ internal sealed record ScanHit(
 /// ARP matters because a device on the same layer-2 segment has to answer it to
 /// communicate at all, while plenty of hosts (Windows with its default firewall, printers,
 /// cameras) silently drop pings. ARP is also what supplies the MAC address.
+///
+/// Only devices that are actually present are reported. That needs care, because SendARP
+/// answers straight from the Windows ARP cache when an entry exists, so a machine that was
+/// switched off minutes ago would otherwise be listed as live. An address that answers ARP
+/// but not ping is therefore re-checked with its cache entry dropped first, which forces a
+/// real ARP exchange on the wire; if nothing answers that, the address is left out.
 /// </summary>
 internal static class NetworkScanner
 {
@@ -142,9 +149,22 @@ internal static class NetworkScanner
 
         string mac = await Task.Run(() => ResolveMacAddress(host), token).ConfigureAwait(false);
 
-        if (roundTrip is null && mac.Length == 0)
+        if (roundTrip is null)
         {
-            return null;
+            if (mac.Length == 0)
+            {
+                // Nothing at this address.
+                return null;
+            }
+
+            // ARP answered but ping did not, so the MAC may just be a cache entry left over
+            // from a device that has since gone. Drop the entry and ask the wire directly.
+            mac = await Task.Run(() => ResolveMacAfterFlushingCache(host), token).ConfigureAwait(false);
+
+            if (mac.Length == 0)
+            {
+                return null;
+            }
         }
 
         string hostName = await ResolveHostNameAsync(host, token).ConfigureAwait(false);
@@ -200,6 +220,36 @@ internal static class NetworkScanner
         {
             return "";
         }
+    }
+
+    /// <summary>
+    /// Removes the address from the ARP cache and resolves it again, so the answer can only
+    /// come from a device that replied just now. Needs elevation to delete the entry; without
+    /// it the cached answer stands, which is no worse than not checking at all.
+    /// </summary>
+    private static string ResolveMacAfterFlushingCache(IPAddress host)
+    {
+        try
+        {
+            ProcessStartInfo startInfo = new(Path.Combine(Environment.SystemDirectory, "arp.exe"))
+            {
+                CreateNoWindow = true,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+            };
+            startInfo.ArgumentList.Add("-d");
+            startInfo.ArgumentList.Add(host.ToString());
+
+            using Process? process = Process.Start(startInfo);
+            process?.WaitForExit(5_000);
+        }
+        catch (Exception)
+        {
+            // An address with no cache entry cannot be deleted, which is fine.
+        }
+
+        return ResolveMacAddress(host);
     }
 
     private static async Task<string> ResolveHostNameAsync(IPAddress host, CancellationToken token)

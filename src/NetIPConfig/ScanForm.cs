@@ -45,7 +45,7 @@ internal sealed class ScanForm : Form
             Height = 34,
             Padding = new Padding(12, 3, 12, 12),
             Tag = Theme.DimTag,
-            Text = "Each address is pinged and ARP-resolved, so devices that ignore pings still show up.",
+            Text = "Only devices answering right now — \"ARP\" means it ignored the ping but answered ARP.",
             TextAlign = ContentAlignment.TopLeft,
         };
 
@@ -282,7 +282,7 @@ internal sealed class ScanForm : Form
 
         item.SubItems.Add(hit.MacAddress.Length > 0 ? hit.MacAddress : "—");
         item.SubItems.Add(hit.HostName.Length > 0 ? hit.HostName : "—");
-        item.SubItems.Add(hit.RoundTripMs is { } milliseconds ? $"{milliseconds} ms" : "no reply");
+        item.SubItems.Add(hit.RoundTripMs is { } milliseconds ? $"{milliseconds} ms" : "ARP");
         item.SubItems.Add(hit.Note);
 
         _results.Items.Add(item);

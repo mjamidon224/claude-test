@@ -89,8 +89,15 @@ Each address in the subnet is probed two ways at once, 64 addresses at a time:
 - **ARP request** (`SendARP` in `iphlpapi.dll`) for the MAC address. This is the part that
   matters for coverage: any device on the same layer-2 segment has to answer ARP to
   communicate at all, while plenty of hosts — Windows with its default firewall, printers,
-  cameras — drop pings silently. A device is listed if *either* signal comes back, so the
-  `no reply` rows are real devices found by ARP alone.
+  cameras — drop pings silently. Rows showing `ARP` in the Ping column are real devices
+  found this way.
+
+Only devices that are present are listed, which takes one extra step: `SendARP` answers from
+the Windows ARP cache when an entry exists, so a machine switched off minutes ago would
+otherwise appear with a valid MAC. An address that answers ARP but not ping is therefore
+re-checked with `arp -d` run against it first, forcing a real ARP exchange on the wire — if
+nothing answers that, the address is not listed. (Without elevation the delete fails and the
+cached answer stands, which is no worse than not checking.)
 
 Device names come from a reverse DNS lookup (1.5 s timeout), so they appear only for hosts
 with a PTR record or an entry in your DNS server — expect blanks on a home network. There is
