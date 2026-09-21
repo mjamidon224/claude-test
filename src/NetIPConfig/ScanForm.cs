@@ -30,10 +30,23 @@ internal sealed class ScanForm : Form
 
         _range = new Label
         {
+            AutoEllipsis = true,
             Dock = DockStyle.Top,
-            Height = 42,
-            Padding = new Padding(12, 11, 12, 0),
+            Height = 28,
+            Padding = new Padding(12, 9, 12, 0),
             Text = DescribeRange(address, mask),
+            TextAlign = ContentAlignment.TopLeft,
+        };
+
+        Label hint = new()
+        {
+            AutoEllipsis = true,
+            Dock = DockStyle.Top,
+            Height = 34,
+            Padding = new Padding(12, 3, 12, 12),
+            Tag = Theme.DimTag,
+            Text = "Each address is pinged and ARP-resolved, so devices that ignore pings still show up.",
+            TextAlign = ContentAlignment.TopLeft,
         };
 
         _results = new ListView
@@ -46,11 +59,11 @@ internal sealed class ScanForm : Form
             View = View.Details,
         };
 
-        _results.Columns.Add("IP address", 120);
-        _results.Columns.Add("MAC address", 140);
-        _results.Columns.Add("Device name", 240);
-        _results.Columns.Add("Ping", 70, HorizontalAlignment.Right);
-        _results.Columns.Add("Notes", 120);
+        _results.Columns.Add("IP address", 115);
+        _results.Columns.Add("MAC address", 165);
+        _results.Columns.Add("Device name", 215);
+        _results.Columns.Add("Ping", 60, HorizontalAlignment.Right);
+        _results.Columns.Add("Notes", 110);
         _results.ListViewItemSorter = new AddressComparer();
         ApplyDarkHeader();
 
@@ -63,7 +76,8 @@ internal sealed class ScanForm : Form
 
         _status = new Label
         {
-            Anchor = AnchorStyles.Top | AnchorStyles.Left,
+            // Stretches with the window so it cannot slide under the buttons when narrowed.
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
             AutoEllipsis = true,
             Location = new Point(12, 46),
             Size = new Size(400, 20),
@@ -102,7 +116,10 @@ internal sealed class ScanForm : Form
         Panel bottom = new()
         {
             Dock = DockStyle.Bottom,
-            Height = 80,
+            // Sized to the client width up front: Anchor offsets are captured relative to the
+            // parent's size, so children added to a default 200px panel get placed wrongly
+            // once it stretches.
+            Size = new Size(760, 80),
         };
         bottom.Controls.Add(_progress);
         bottom.Controls.Add(_status);
@@ -125,6 +142,7 @@ internal sealed class ScanForm : Form
         // Docking is applied from the last control backwards, so the filling list goes first.
         Controls.Add(_results);
         Controls.Add(bottom);
+        Controls.Add(hint);
         Controls.Add(_range);
 
         Theme.Apply(this, theme);
@@ -145,9 +163,7 @@ internal sealed class ScanForm : Form
             : "";
 
         return $"Subnet of {address} / {mask} on \"{_adapter.Name}\": "
-               + $"{first} to {last}, {_hosts.Count} addresses{capped}."
-               + Environment.NewLine
-               + "Each address is pinged and ARP-resolved, so devices that ignore pings still show up.";
+               + $"{first} to {last}, {_hosts.Count} addresses{capped}.";
     }
 
     protected override void OnShown(EventArgs e)

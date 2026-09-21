@@ -349,6 +349,9 @@ partial class MainForm
         pnlContent.Controls.Add(txtLog);
         pnlContent.Dock = DockStyle.Fill;
         pnlContent.Name = "pnlContent";
+        // Sized to the area it will occupy before anything is added, so the anchored
+        // children inside it keep their intended margins once it fills the form.
+        pnlContent.Size = new Size(580, 791);
         pnlContent.TabIndex = 0;
 
         // pnlBottom — keeps the action buttons visible whatever the content does.
