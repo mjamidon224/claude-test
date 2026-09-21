@@ -27,6 +27,7 @@ partial class MainForm
         lblAdapter = new Label();
         cmbAdapters = new ComboBox();
         btnRefresh = new Button();
+        btnTheme = new Button();
 
         grpCurrent = new GroupBox();
         lblCurStatus = new Label();
@@ -43,6 +44,11 @@ partial class MainForm
         lblCurGatewayValue = new Label();
         lblCurDns = new Label();
         lblCurDnsValue = new Label();
+
+        grpProfiles = new GroupBox();
+        cmbProfiles = new ComboBox();
+        btnProfileSave = new Button();
+        btnProfileDelete = new Button();
 
         grpAddress = new GroupBox();
         rbDhcp = new RadioButton();
@@ -69,39 +75,48 @@ partial class MainForm
         btnApply = new Button();
         btnClose = new Button();
 
-        statusStrip = new StatusStrip();
-        lblElevation = new ToolStripStatusLabel();
-        lblRestartElevated = new ToolStripStatusLabel();
+        pnlStatus = new Panel();
+        lblElevation = new Label();
+        lnkRestartElevated = new LinkLabel();
 
         grpCurrent.SuspendLayout();
+        grpProfiles.SuspendLayout();
         grpAddress.SuspendLayout();
         grpDns.SuspendLayout();
-        statusStrip.SuspendLayout();
+        pnlStatus.SuspendLayout();
         SuspendLayout();
 
         // lblAdapter
         lblAdapter.AutoSize = true;
         lblAdapter.Location = new Point(12, 12);
         lblAdapter.Name = "lblAdapter";
-        lblAdapter.Size = new Size(96, 15);
         lblAdapter.TabIndex = 0;
         lblAdapter.Text = "&Network adapter:";
+
+        // btnTheme
+        btnTheme.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnTheme.Location = new Point(448, 7);
+        btnTheme.Name = "btnTheme";
+        btnTheme.Size = new Size(120, 26);
+        btnTheme.TabIndex = 1;
+        btnTheme.Text = "Dark &mode";
+        btnTheme.UseVisualStyleBackColor = true;
 
         // cmbAdapters
         cmbAdapters.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         cmbAdapters.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbAdapters.DropDownWidth = 640;
-        cmbAdapters.Location = new Point(12, 32);
+        cmbAdapters.Location = new Point(12, 39);
         cmbAdapters.Name = "cmbAdapters";
         cmbAdapters.Size = new Size(455, 23);
-        cmbAdapters.TabIndex = 1;
+        cmbAdapters.TabIndex = 2;
 
         // btnRefresh
         btnRefresh.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnRefresh.Location = new Point(473, 31);
+        btnRefresh.Location = new Point(473, 38);
         btnRefresh.Name = "btnRefresh";
         btnRefresh.Size = new Size(95, 25);
-        btnRefresh.TabIndex = 2;
+        btnRefresh.TabIndex = 3;
         btnRefresh.Text = "&Refresh";
         btnRefresh.UseVisualStyleBackColor = true;
 
@@ -121,10 +136,10 @@ partial class MainForm
         grpCurrent.Controls.Add(lblCurGatewayValue);
         grpCurrent.Controls.Add(lblCurDns);
         grpCurrent.Controls.Add(lblCurDnsValue);
-        grpCurrent.Location = new Point(12, 66);
+        grpCurrent.Location = new Point(12, 73);
         grpCurrent.Name = "grpCurrent";
         grpCurrent.Size = new Size(556, 185);
-        grpCurrent.TabIndex = 3;
+        grpCurrent.TabIndex = 4;
         grpCurrent.TabStop = false;
         grpCurrent.Text = "Current configuration";
 
@@ -135,6 +150,45 @@ partial class MainForm
         AddCurrentRow(lblCurMask, lblCurMaskValue, "Subnet mask:", 113);
         AddCurrentRow(lblCurGateway, lblCurGatewayValue, "Default gateway:", 135);
         AddCurrentRow(lblCurDns, lblCurDnsValue, "DNS servers:", 157);
+
+        // grpProfiles
+        grpProfiles.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        grpProfiles.Controls.Add(cmbProfiles);
+        grpProfiles.Controls.Add(btnProfileSave);
+        grpProfiles.Controls.Add(btnProfileDelete);
+        grpProfiles.Location = new Point(12, 266);
+        grpProfiles.Name = "grpProfiles";
+        grpProfiles.Size = new Size(556, 66);
+        grpProfiles.TabIndex = 5;
+        grpProfiles.TabStop = false;
+        grpProfiles.Text = "Saved profiles";
+
+        // cmbProfiles
+        cmbProfiles.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        cmbProfiles.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbProfiles.DropDownWidth = 400;
+        cmbProfiles.Location = new Point(16, 26);
+        cmbProfiles.Name = "cmbProfiles";
+        cmbProfiles.Size = new Size(280, 23);
+        cmbProfiles.TabIndex = 0;
+
+        // btnProfileSave
+        btnProfileSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnProfileSave.Location = new Point(304, 25);
+        btnProfileSave.Name = "btnProfileSave";
+        btnProfileSave.Size = new Size(140, 25);
+        btnProfileSave.TabIndex = 1;
+        btnProfileSave.Text = "Save as pro&file...";
+        btnProfileSave.UseVisualStyleBackColor = true;
+
+        // btnProfileDelete
+        btnProfileDelete.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnProfileDelete.Location = new Point(452, 25);
+        btnProfileDelete.Name = "btnProfileDelete";
+        btnProfileDelete.Size = new Size(88, 25);
+        btnProfileDelete.TabIndex = 2;
+        btnProfileDelete.Text = "De&lete";
+        btnProfileDelete.UseVisualStyleBackColor = true;
 
         // grpAddress
         grpAddress.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -147,10 +201,10 @@ partial class MainForm
         grpAddress.Controls.Add(lblGateway);
         grpAddress.Controls.Add(txtGateway);
         grpAddress.Controls.Add(lblGatewayHint);
-        grpAddress.Location = new Point(12, 261);
+        grpAddress.Location = new Point(12, 340);
         grpAddress.Name = "grpAddress";
         grpAddress.Size = new Size(556, 182);
-        grpAddress.TabIndex = 4;
+        grpAddress.TabIndex = 6;
         grpAddress.TabStop = false;
         grpAddress.Text = "IPv4 address";
 
@@ -158,7 +212,6 @@ partial class MainForm
         rbDhcp.AutoSize = true;
         rbDhcp.Location = new Point(16, 26);
         rbDhcp.Name = "rbDhcp";
-        rbDhcp.Size = new Size(280, 19);
         rbDhcp.TabIndex = 0;
         rbDhcp.Text = "Obtain an IP address automatically (&DHCP)";
         rbDhcp.UseVisualStyleBackColor = true;
@@ -167,7 +220,6 @@ partial class MainForm
         rbStatic.AutoSize = true;
         rbStatic.Location = new Point(16, 51);
         rbStatic.Name = "rbStatic";
-        rbStatic.Size = new Size(200, 19);
         rbStatic.TabIndex = 1;
         rbStatic.Text = "Use the &following IP address";
         rbStatic.UseVisualStyleBackColor = true;
@@ -178,10 +230,9 @@ partial class MainForm
 
         // lblGatewayHint
         lblGatewayHint.AutoSize = true;
-        lblGatewayHint.ForeColor = SystemColors.GrayText;
         lblGatewayHint.Location = new Point(360, 144);
         lblGatewayHint.Name = "lblGatewayHint";
-        lblGatewayHint.Size = new Size(120, 15);
+        lblGatewayHint.Tag = Theme.DimTag;
         lblGatewayHint.TabIndex = 5;
         lblGatewayHint.Text = "leave blank for none";
 
@@ -193,10 +244,10 @@ partial class MainForm
         grpDns.Controls.Add(txtPreferredDns);
         grpDns.Controls.Add(lblAlternateDns);
         grpDns.Controls.Add(txtAlternateDns);
-        grpDns.Location = new Point(12, 453);
+        grpDns.Location = new Point(12, 530);
         grpDns.Name = "grpDns";
         grpDns.Size = new Size(556, 152);
-        grpDns.TabIndex = 5;
+        grpDns.TabIndex = 7;
         grpDns.TabStop = false;
         grpDns.Text = "DNS servers";
 
@@ -204,7 +255,6 @@ partial class MainForm
         rbDnsAutomatic.AutoSize = true;
         rbDnsAutomatic.Location = new Point(16, 26);
         rbDnsAutomatic.Name = "rbDnsAutomatic";
-        rbDnsAutomatic.Size = new Size(300, 19);
         rbDnsAutomatic.TabIndex = 0;
         rbDnsAutomatic.Text = "Obtain DNS server addresses &automatically";
         rbDnsAutomatic.UseVisualStyleBackColor = true;
@@ -213,7 +263,6 @@ partial class MainForm
         rbDnsManual.AutoSize = true;
         rbDnsManual.Location = new Point(16, 51);
         rbDnsManual.Name = "rbDnsManual";
-        rbDnsManual.Size = new Size(260, 19);
         rbDnsManual.TabIndex = 1;
         rbDnsManual.Text = "Use the follo&wing DNS server addresses";
         rbDnsManual.UseVisualStyleBackColor = true;
@@ -224,81 +273,91 @@ partial class MainForm
         // lblLog
         lblLog.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         lblLog.AutoSize = true;
-        lblLog.Location = new Point(12, 615);
+        lblLog.Location = new Point(12, 692);
         lblLog.Name = "lblLog";
-        lblLog.Size = new Size(80, 15);
-        lblLog.TabIndex = 6;
+        lblLog.TabIndex = 8;
         lblLog.Text = "Activity log:";
 
         // txtLog
         txtLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        txtLog.BackColor = SystemColors.Window;
         txtLog.Font = new Font("Consolas", 8.5F);
-        txtLog.Location = new Point(12, 634);
+        txtLog.Location = new Point(12, 711);
         txtLog.Multiline = true;
         txtLog.Name = "txtLog";
         txtLog.ReadOnly = true;
         txtLog.ScrollBars = ScrollBars.Vertical;
-        txtLog.Size = new Size(556, 94);
-        txtLog.TabIndex = 7;
+        txtLog.Size = new Size(556, 74);
+        txtLog.TabIndex = 9;
         txtLog.TabStop = false;
         txtLog.WordWrap = false;
 
         // btnLoadCurrent
         btnLoadCurrent.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-        btnLoadCurrent.Location = new Point(12, 738);
+        btnLoadCurrent.Location = new Point(12, 795);
         btnLoadCurrent.Name = "btnLoadCurrent";
         btnLoadCurrent.Size = new Size(180, 30);
-        btnLoadCurrent.TabIndex = 8;
+        btnLoadCurrent.TabIndex = 10;
         btnLoadCurrent.Text = "&Load current settings";
         btnLoadCurrent.UseVisualStyleBackColor = true;
 
         // btnApply
         btnApply.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-        btnApply.Location = new Point(356, 738);
+        btnApply.Location = new Point(356, 795);
         btnApply.Name = "btnApply";
         btnApply.Size = new Size(100, 30);
-        btnApply.TabIndex = 9;
+        btnApply.TabIndex = 11;
         btnApply.Text = "&Apply";
         btnApply.UseVisualStyleBackColor = true;
 
         // btnClose
         btnClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnClose.DialogResult = DialogResult.Cancel;
-        btnClose.Location = new Point(468, 738);
+        btnClose.Location = new Point(468, 795);
         btnClose.Name = "btnClose";
         btnClose.Size = new Size(100, 30);
-        btnClose.TabIndex = 10;
+        btnClose.TabIndex = 12;
         btnClose.Text = "&Close";
         btnClose.UseVisualStyleBackColor = true;
 
-        // statusStrip
-        statusStrip.Items.Add(lblElevation);
-        statusStrip.Items.Add(lblRestartElevated);
-        statusStrip.Location = new Point(0, 780);
-        statusStrip.Name = "statusStrip";
-        statusStrip.Size = new Size(580, 22);
-        statusStrip.SizingGrip = false;
-        statusStrip.TabIndex = 11;
+        // pnlStatus — a panel rather than a StatusStrip, because a StatusStrip's
+        // professional renderer ignores BackColor and cannot be themed dark.
+        pnlStatus.Controls.Add(lnkRestartElevated);
+        pnlStatus.Controls.Add(lblElevation);
+        pnlStatus.Dock = DockStyle.Bottom;
+        pnlStatus.Name = "pnlStatus";
+        pnlStatus.Size = new Size(580, 26);
+        pnlStatus.TabIndex = 13;
 
+        // lblElevation
+        lblElevation.Dock = DockStyle.Fill;
         lblElevation.Name = "lblElevation";
+        lblElevation.Padding = new Padding(10, 0, 0, 0);
+        lblElevation.TabIndex = 0;
         lblElevation.Text = "";
+        lblElevation.TextAlign = ContentAlignment.MiddleLeft;
 
-        lblRestartElevated.IsLink = true;
-        lblRestartElevated.Name = "lblRestartElevated";
-        lblRestartElevated.Text = "Restart as administrator";
-        lblRestartElevated.Visible = false;
+        // lnkRestartElevated
+        lnkRestartElevated.AutoSize = true;
+        lnkRestartElevated.Dock = DockStyle.Right;
+        lnkRestartElevated.Name = "lnkRestartElevated";
+        lnkRestartElevated.Padding = new Padding(0, 0, 10, 0);
+        lnkRestartElevated.TabIndex = 1;
+        lnkRestartElevated.Text = "Restart as administrator";
+        lnkRestartElevated.TextAlign = ContentAlignment.MiddleRight;
+        lnkRestartElevated.Visible = false;
 
         // MainForm
         AcceptButton = btnApply;
         CancelButton = btnClose;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(580, 802);
+        ClientSize = new Size(580, 855);
         Controls.Add(lblAdapter);
+        Controls.Add(btnTheme);
         Controls.Add(cmbAdapters);
         Controls.Add(btnRefresh);
         Controls.Add(grpCurrent);
+        Controls.Add(grpProfiles);
         Controls.Add(grpAddress);
         Controls.Add(grpDns);
         Controls.Add(lblLog);
@@ -306,14 +365,15 @@ partial class MainForm
         Controls.Add(btnLoadCurrent);
         Controls.Add(btnApply);
         Controls.Add(btnClose);
-        Controls.Add(statusStrip);
+        Controls.Add(pnlStatus);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "IPv4 Settings Manager";
 
-        statusStrip.ResumeLayout(false);
+        pnlStatus.ResumeLayout(false);
         grpDns.ResumeLayout(false);
         grpAddress.ResumeLayout(false);
+        grpProfiles.ResumeLayout(false);
         grpCurrent.ResumeLayout(false);
         ResumeLayout(false);
     }
@@ -344,7 +404,6 @@ partial class MainForm
 
         box.Location = new Point(180, top);
         box.MaxLength = 15;
-        box.Name = "txt" + text.Replace(":", string.Empty).Replace(" ", string.Empty);
         box.Size = new Size(170, 23);
         box.TabIndex = tabIndex;
     }
@@ -352,6 +411,7 @@ partial class MainForm
     private Label lblAdapter;
     private ComboBox cmbAdapters;
     private Button btnRefresh;
+    private Button btnTheme;
 
     private GroupBox grpCurrent;
     private Label lblCurStatus;
@@ -368,6 +428,11 @@ partial class MainForm
     private Label lblCurGatewayValue;
     private Label lblCurDns;
     private Label lblCurDnsValue;
+
+    private GroupBox grpProfiles;
+    private ComboBox cmbProfiles;
+    private Button btnProfileSave;
+    private Button btnProfileDelete;
 
     private GroupBox grpAddress;
     private RadioButton rbDhcp;
@@ -394,7 +459,7 @@ partial class MainForm
     private Button btnApply;
     private Button btnClose;
 
-    private StatusStrip statusStrip;
-    private ToolStripStatusLabel lblElevation;
-    private ToolStripStatusLabel lblRestartElevated;
+    private Panel pnlStatus;
+    private Label lblElevation;
+    private LinkLabel lnkRestartElevated;
 }

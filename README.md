@@ -23,11 +23,22 @@ validation and a log of exactly what was run.
 - **Validation before anything is applied**: strict dotted-quad parsing, rejection of
   non-contiguous masks, of loopback / multicast / reserved / network / broadcast addresses,
   and a warning (not a refusal) when the gateway sits outside the chosen subnet.
+- **Saved profiles**: name a set of settings ("office static", "lab DHCP", "customer site")
+  and recall it from the dropdown. Recalling a profile only fills the fields — nothing
+  reaches the adapter until you press Apply. Profiles are not tied to an adapter, so the
+  same profile works on a dock, a USB NIC or Wi-Fi.
+- **Dark mode**: a toggle in the top right, including the title bar, remembered between
+  runs.
 - **Convenience**: type `24` in the subnet mask box and it becomes `255.255.255.0`; typing
   an address fills an empty mask box with the class default; *Load current settings* copies
   the adapter's live values back into the fields.
 - **Confirmation and log**: a summary dialog before applying, then every `netsh` command and
   its output in the activity log.
+
+Profiles and the dark-mode choice live in
+`%APPDATA%\NetIPConfig\settings.json`, written when you change them. A missing or damaged
+file simply starts you with defaults, and it is plain JSON if you want to hand-edit or copy
+it to another machine.
 
 ## Requirements
 
@@ -116,12 +127,16 @@ also attaches both executables to a GitHub release.
 | `src/NetIPConfig/NetworkConfigurator.cs` | Builds and runs the `netsh` commands |
 | `src/NetIPConfig/IPv4Text.cs` | Dotted-quad parsing, mask/subnet checks |
 | `src/NetIPConfig/AdapterInfo.cs` | Adapter snapshot model |
+| `src/NetIPConfig/Theme.cs` | Light/dark recolouring, including the title bar |
+| `src/NetIPConfig/AppSettings.cs` | Profile and settings models |
+| `src/NetIPConfig/SettingsStore.cs` | Loads and saves `settings.json` |
+| `src/NetIPConfig/TextPromptDialog.cs` | Name prompt used when saving a profile |
 | `src/NetIPConfig/app.manifest` | Requests administrator elevation |
 
 No NuGet packages are referenced; everything comes from the Windows Desktop framework.
 
 ## Not yet covered
 
-IPv6, multiple IP addresses or gateways per adapter, gateway metrics, WINS, saved
-profiles/presets, and DHCP release/renew. The `netsh` commands for these fit the same
+IPv6, multiple IP addresses or gateways per adapter, gateway metrics, WINS, and DHCP
+release/renew. The `netsh` commands for these fit the same
 `NetworkConfigurator.BuildCommands` pattern if you want to add them.

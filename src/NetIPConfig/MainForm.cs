@@ -8,6 +8,7 @@ namespace NetIPConfig;
 public partial class MainForm : Form
 {
     private List<AdapterInfo> _adapters = new();
+    private AppSettings _settings = new();
 
     /// <summary>Set while the code is filling controls, so handlers do not fight the update.</summary>
     private bool _updatingControls;
@@ -18,6 +19,7 @@ public partial class MainForm : Form
         MinimumSize = Size;
 
         cmbAdapters.DisplayMember = nameof(AdapterInfo.DisplayText);
+        cmbProfiles.DisplayMember = nameof(IPv4Profile.DisplayText);
         cmbAdapters.SelectedIndexChanged += (_, _) => OnAdapterSelected();
         btnRefresh.Click += (_, _) => LoadAdapters();
         btnLoadCurrent.Click += (_, _) => PopulateFields(logAction: true);
@@ -29,9 +31,14 @@ public partial class MainForm : Form
         rbDnsAutomatic.CheckedChanged += (_, _) => UpdateEnabledState();
         rbDnsManual.CheckedChanged += (_, _) => UpdateEnabledState();
 
+        btnTheme.Click += (_, _) => ToggleTheme();
+        cmbProfiles.SelectedIndexChanged += (_, _) => OnProfileSelected();
+        btnProfileSave.Click += (_, _) => SaveCurrentAsProfile();
+        btnProfileDelete.Click += (_, _) => DeleteSelectedProfile();
+
         txtAddress.Leave += (_, _) => SuggestMaskForAddress();
         txtMask.Leave += (_, _) => ExpandPrefixLengthShorthand();
-        lblRestartElevated.Click += (_, _) => RestartElevated();
+        lnkRestartElevated.Click += (_, _) => RestartElevated();
     }
 
     private AdapterInfo? SelectedAdapter => cmbAdapters.SelectedItem as AdapterInfo;
@@ -39,6 +46,9 @@ public partial class MainForm : Form
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
+        _settings = SettingsStore.Load();
+        ApplyTheme();
+        RefreshProfileList();
         ShowElevationState();
         LoadAdapters();
     }
@@ -160,7 +170,11 @@ public partial class MainForm : Form
         txtPreferredDns.Text = adapter.DnsServers.Count > 0 ? adapter.DnsServers[0] : "";
         txtAlternateDns.Text = adapter.DnsServers.Count > 1 ? adapter.DnsServers[1] : "";
 
+        // The fields no longer reflect a profile, so do not leave one looking selected.
+        cmbProfiles.SelectedIndex = -1;
+
         _updatingControls = false;
+        btnProfileDelete.Enabled = false;
         UpdateEnabledState();
 
         if (logAction)
@@ -222,6 +236,7 @@ public partial class MainForm : Form
         btnApply.Enabled = !busy;
         grpAddress.Enabled = !busy;
         grpDns.Enabled = !busy;
+        grpProfiles.Enabled = !busy;
         UseWaitCursor = busy;
 
         if (!busy)
@@ -519,6 +534,191 @@ public partial class MainForm : Form
         focus?.Focus();
     }
 
+    // ---------------------------------------------------------------- theme
+
+    private AppTheme CurrentTheme => _settings.DarkMode ? AppTheme.Dark : AppTheme.Light;
+
+    private void ToggleTheme()
+    {
+        _settings.DarkMode = !_settings.DarkMode;
+        ApplyTheme();
+        PersistSettings();
+        Log(_settings.DarkMode ? "Switched to dark mode." : "Switched to light mode.");
+    }
+
+    private void ApplyTheme()
+    {
+        Theme.Apply(this, CurrentTheme);
+        btnTheme.Text = _settings.DarkMode ? "&Light mode" : "Dark &mode";
+    }
+
+    // ---------------------------------------------------------------- profiles
+
+    private IPv4Profile? SelectedProfile => cmbProfiles.SelectedItem as IPv4Profile;
+
+    private void RefreshProfileList(string? nameToSelect = null)
+    {
+        _updatingControls = true;
+        cmbProfiles.BeginUpdate();
+        cmbProfiles.Items.Clear();
+
+        foreach (IPv4Profile profile in _settings.Profiles
+                     .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            cmbProfiles.Items.Add(profile);
+        }
+
+        cmbProfiles.EndUpdate();
+
+        if (nameToSelect is not null)
+        {
+            for (int i = 0; i < cmbProfiles.Items.Count; i++)
+            {
+                if (cmbProfiles.Items[i] is IPv4Profile candidate
+                    && string.Equals(candidate.Name, nameToSelect, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    cmbProfiles.SelectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        _updatingControls = false;
+
+        bool hasProfiles = cmbProfiles.Items.Count > 0;
+        cmbProfiles.Enabled = hasProfiles;
+        btnProfileDelete.Enabled = cmbProfiles.SelectedItem is not null;
+    }
+
+    private void OnProfileSelected()
+    {
+        if (_updatingControls)
+        {
+            return;
+        }
+
+        IPv4Profile? profile = SelectedProfile;
+        if (profile is null)
+        {
+            return;
+        }
+
+        LoadProfileIntoFields(profile);
+        btnProfileDelete.Enabled = true;
+    }
+
+    /// <summary>
+    /// Fills the form from a profile. Nothing is sent to the adapter until Apply is pressed,
+    /// so recalling a profile is always safe.
+    /// </summary>
+    private void LoadProfileIntoFields(IPv4Profile profile)
+    {
+        _updatingControls = true;
+
+        rbDhcp.Checked = profile.UseDhcp;
+        rbStatic.Checked = !profile.UseDhcp;
+        txtAddress.Text = profile.Address;
+        txtMask.Text = profile.SubnetMask;
+        txtGateway.Text = profile.Gateway;
+
+        rbDnsAutomatic.Checked = profile.DnsAutomatic;
+        rbDnsManual.Checked = !profile.DnsAutomatic;
+        txtPreferredDns.Text = profile.PreferredDns;
+        txtAlternateDns.Text = profile.AlternateDns;
+
+        _updatingControls = false;
+        UpdateEnabledState();
+
+        string target = SelectedAdapter?.Name ?? "the selected adapter";
+        Log($"Profile \"{profile.Name}\" loaded — press Apply to set it on \"{target}\".");
+    }
+
+    private void SaveCurrentAsProfile()
+    {
+        string? name = TextPromptDialog.Ask(
+            this,
+            "Save profile",
+            "Name for this set of IPv4 settings:",
+            SelectedProfile?.Name ?? "",
+            CurrentTheme);
+
+        if (name is null)
+        {
+            return;
+        }
+
+        IPv4Profile? existing = _settings.Profiles
+            .FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.CurrentCultureIgnoreCase));
+
+        if (existing is not null)
+        {
+            if (MessageBox.Show(
+                    this,
+                    $"A profile named \"{existing.Name}\" already exists. Replace it?",
+                    "Replace profile",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            _settings.Profiles.Remove(existing);
+        }
+
+        IPv4Profile profile = CaptureFieldsAsProfile(name);
+        _settings.Profiles.Add(profile);
+        PersistSettings();
+        RefreshProfileList(profile.Name);
+        Log($"Saved profile \"{profile.Name}\".");
+    }
+
+    private IPv4Profile CaptureFieldsAsProfile(string name) => new()
+    {
+        Name = name,
+        UseDhcp = rbDhcp.Checked,
+        Address = txtAddress.Text.Trim(),
+        SubnetMask = txtMask.Text.Trim(),
+        Gateway = txtGateway.Text.Trim(),
+        DnsAutomatic = rbDnsAutomatic.Checked,
+        PreferredDns = txtPreferredDns.Text.Trim(),
+        AlternateDns = txtAlternateDns.Text.Trim(),
+    };
+
+    private void DeleteSelectedProfile()
+    {
+        IPv4Profile? profile = SelectedProfile;
+        if (profile is null)
+        {
+            return;
+        }
+
+        if (MessageBox.Show(
+                this,
+                $"Delete the profile \"{profile.Name}\"?",
+                "Delete profile",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+        {
+            return;
+        }
+
+        _settings.Profiles.Remove(profile);
+        PersistSettings();
+        RefreshProfileList();
+        Log($"Deleted profile \"{profile.Name}\".");
+    }
+
+    private void PersistSettings()
+    {
+        string? error = SettingsStore.Save(_settings);
+        if (error is not null)
+        {
+            Log($"Could not save settings to {SettingsStore.FilePath}: {error}");
+        }
+    }
+
     // ---------------------------------------------------------------- elevation and logging
 
     private void ShowElevationState()
@@ -526,12 +726,12 @@ public partial class MainForm : Form
         if (IsElevated())
         {
             lblElevation.Text = "Running as administrator.";
-            lblRestartElevated.Visible = false;
+            lnkRestartElevated.Visible = false;
             return;
         }
 
         lblElevation.Text = "Not running as administrator — applying changes will fail.";
-        lblRestartElevated.Visible = true;
+        lnkRestartElevated.Visible = true;
         Log("This process is not elevated. Restart it as administrator before applying changes.");
     }
 
