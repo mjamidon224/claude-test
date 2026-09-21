@@ -75,6 +75,8 @@ partial class MainForm
         btnApply = new Button();
         btnClose = new Button();
 
+        pnlContent = new Panel();
+        pnlBottom = new Panel();
         pnlStatus = new Panel();
         lblElevation = new Label();
         lnkRestartElevated = new LinkLabel();
@@ -83,6 +85,8 @@ partial class MainForm
         grpProfiles.SuspendLayout();
         grpAddress.SuspendLayout();
         grpDns.SuspendLayout();
+        pnlContent.SuspendLayout();
+        pnlBottom.SuspendLayout();
         pnlStatus.SuspendLayout();
         SuspendLayout();
 
@@ -292,8 +296,8 @@ partial class MainForm
         txtLog.WordWrap = false;
 
         // btnLoadCurrent
-        btnLoadCurrent.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-        btnLoadCurrent.Location = new Point(12, 795);
+        btnLoadCurrent.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        btnLoadCurrent.Location = new Point(12, 7);
         btnLoadCurrent.Name = "btnLoadCurrent";
         btnLoadCurrent.Size = new Size(180, 30);
         btnLoadCurrent.TabIndex = 10;
@@ -301,8 +305,8 @@ partial class MainForm
         btnLoadCurrent.UseVisualStyleBackColor = true;
 
         // btnApply
-        btnApply.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-        btnApply.Location = new Point(356, 795);
+        btnApply.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnApply.Location = new Point(356, 7);
         btnApply.Name = "btnApply";
         btnApply.Size = new Size(100, 30);
         btnApply.TabIndex = 11;
@@ -310,14 +314,41 @@ partial class MainForm
         btnApply.UseVisualStyleBackColor = true;
 
         // btnClose
-        btnClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+        btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnClose.DialogResult = DialogResult.Cancel;
-        btnClose.Location = new Point(468, 795);
+        btnClose.Location = new Point(468, 7);
         btnClose.Name = "btnClose";
         btnClose.Size = new Size(100, 30);
         btnClose.TabIndex = 12;
         btnClose.Text = "&Close";
         btnClose.UseVisualStyleBackColor = true;
+
+        // pnlContent — scrolls when the window is shorter than the form's natural height,
+        // so the app stays usable on a 1366x768 laptop screen.
+        pnlContent.AutoScroll = true;
+        pnlContent.AutoScrollMinSize = new Size(500, 790);
+        pnlContent.Controls.Add(lblAdapter);
+        pnlContent.Controls.Add(btnTheme);
+        pnlContent.Controls.Add(cmbAdapters);
+        pnlContent.Controls.Add(btnRefresh);
+        pnlContent.Controls.Add(grpCurrent);
+        pnlContent.Controls.Add(grpProfiles);
+        pnlContent.Controls.Add(grpAddress);
+        pnlContent.Controls.Add(grpDns);
+        pnlContent.Controls.Add(lblLog);
+        pnlContent.Controls.Add(txtLog);
+        pnlContent.Dock = DockStyle.Fill;
+        pnlContent.Name = "pnlContent";
+        pnlContent.TabIndex = 0;
+
+        // pnlBottom — keeps the action buttons visible whatever the content does.
+        pnlBottom.Controls.Add(btnLoadCurrent);
+        pnlBottom.Controls.Add(btnApply);
+        pnlBottom.Controls.Add(btnClose);
+        pnlBottom.Dock = DockStyle.Bottom;
+        pnlBottom.Name = "pnlBottom";
+        pnlBottom.Size = new Size(580, 44);
+        pnlBottom.TabIndex = 1;
 
         // pnlStatus — a panel rather than a StatusStrip, because a StatusStrip's
         // professional renderer ignores BackColor and cannot be themed dark.
@@ -351,26 +382,18 @@ partial class MainForm
         CancelButton = btnClose;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(580, 855);
-        Controls.Add(lblAdapter);
-        Controls.Add(btnTheme);
-        Controls.Add(cmbAdapters);
-        Controls.Add(btnRefresh);
-        Controls.Add(grpCurrent);
-        Controls.Add(grpProfiles);
-        Controls.Add(grpAddress);
-        Controls.Add(grpDns);
-        Controls.Add(lblLog);
-        Controls.Add(txtLog);
-        Controls.Add(btnLoadCurrent);
-        Controls.Add(btnApply);
-        Controls.Add(btnClose);
+        ClientSize = new Size(580, 861);
+        Controls.Add(pnlContent);
+        Controls.Add(pnlBottom);
         Controls.Add(pnlStatus);
+        MinimumSize = new Size(540, 420);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "IPv4 Settings Manager";
 
         pnlStatus.ResumeLayout(false);
+        pnlBottom.ResumeLayout(false);
+        pnlContent.ResumeLayout(false);
         grpDns.ResumeLayout(false);
         grpAddress.ResumeLayout(false);
         grpProfiles.ResumeLayout(false);
@@ -459,6 +482,8 @@ partial class MainForm
     private Button btnApply;
     private Button btnClose;
 
+    private Panel pnlContent;
+    private Panel pnlBottom;
     private Panel pnlStatus;
     private Label lblElevation;
     private LinkLabel lnkRestartElevated;

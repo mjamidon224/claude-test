@@ -16,7 +16,6 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        MinimumSize = Size;
 
         cmbAdapters.DisplayMember = nameof(AdapterInfo.DisplayText);
         cmbProfiles.DisplayMember = nameof(IPv4Profile.DisplayText);
