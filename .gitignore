@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+publish/
+*.user
+*.suo
+.vs/
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# NuGet
+*.nupkg
+packages/

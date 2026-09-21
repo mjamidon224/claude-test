@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <RootNamespace>NetIPConfig</RootNamespace>
+    <AssemblyName>NetIPConfig</AssemblyName>
+    <Product>NetIPConfig</Product>
+    <AssemblyTitle>IPv4 Settings Manager</AssemblyTitle>
+    <Version>1.0.0</Version>
+
+    <!-- Requests administrator rights at launch; changing IP settings needs them. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Lets the project restore/build from a non-Windows machine too. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+</Project>
