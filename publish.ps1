@@ -22,13 +22,16 @@ $ErrorActionPreference = 'Stop'
 
 $project = Join-Path $PSScriptRoot 'src/NetIPConfig/NetIPConfig.csproj'
 
+$selfContainedFlag = $SelfContained.ToString().ToLowerInvariant()
+
 dotnet publish $project `
     --configuration $Configuration `
     --runtime $Runtime `
-    --self-contained $SelfContained.ToString().ToLowerInvariant() `
+    --self-contained $selfContainedFlag `
     --output $OutputPath `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=$selfContainedFlag `
     -p:DebugType=none
 
 if ($LASTEXITCODE -ne 0) {

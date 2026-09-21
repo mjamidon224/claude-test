@@ -89,11 +89,18 @@ the machine.
 
 ## Download a prebuilt executable
 
-The **Build Windows executable** GitHub Actions workflow builds on every push and produces
-self-contained single-file executables for `win-x64` and `win-arm64`. To grab one without
-building locally, open the
+The **Build Windows executable** GitHub Actions workflow builds on every push. To grab an
+executable without building locally, open the
 [Actions tab](https://github.com/mjamidon224/claude-test/actions), pick the newest run and
-download the `NetIPConfig-win-x64` artifact.
+download one of its artifacts:
+
+| Artifact | Size | Needs .NET installed? |
+| --- | --- | --- |
+| `NetIPConfig-win-x64` | ~60 MB | No — everything is bundled |
+| `NetIPConfig-win-arm64` | ~60 MB | No — for Arm devices |
+| `NetIPConfig-win-x64-requires-dotnet8` | a few MB | Yes — .NET 8 Desktop Runtime |
+
+Artifacts arrive as a `.zip`; unzip it and run `NetIPConfig.exe`.
 
 Pushing a tag that starts with `v` (for example `git tag v1.0.0 && git push origin v1.0.0`)
 also attaches both executables to a GitHub release.

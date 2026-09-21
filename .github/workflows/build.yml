@@ -12,13 +12,24 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.runtime }}
+    name: Build ${{ matrix.artifact }}
     runs-on: windows-latest
 
     strategy:
       fail-fast: false
       matrix:
-        runtime: [win-x64, win-arm64]
+        include:
+          # Self-contained: runs on a machine with no .NET installed, ~60 MB compressed.
+          - runtime: win-x64
+            selfContained: true
+            artifact: NetIPConfig-win-x64
+          - runtime: win-arm64
+            selfContained: true
+            artifact: NetIPConfig-win-arm64
+          # Framework-dependent: a couple of MB, needs the .NET 8 Desktop Runtime.
+          - runtime: win-x64
+            selfContained: false
+            artifact: NetIPConfig-win-x64-requires-dotnet8
 
     steps:
       - name: Check out
@@ -37,21 +48,25 @@ jobs:
           dotnet publish src/NetIPConfig/NetIPConfig.csproj
           --configuration Release
           --runtime ${{ matrix.runtime }}
-          --self-contained true
-          --output publish/${{ matrix.runtime }}
+          --self-contained ${{ matrix.selfContained }}
+          --output publish/${{ matrix.artifact }}
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=${{ matrix.selfContained }}
           -p:DebugType=none
 
       - name: Show what was produced
         shell: pwsh
-        run: Get-ChildItem publish/${{ matrix.runtime }} | Select-Object Name, Length | Format-Table -AutoSize
+        run: >
+          Get-ChildItem publish/${{ matrix.artifact }}
+          | Select-Object Name, @{ Name = 'MB'; Expression = { [math]::Round($_.Length / 1MB, 1) } }
+          | Format-Table -AutoSize
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
-          name: NetIPConfig-${{ matrix.runtime }}
-          path: publish/${{ matrix.runtime }}/NetIPConfig.exe
+          name: ${{ matrix.artifact }}
+          path: publish/${{ matrix.artifact }}/NetIPConfig.exe
           if-no-files-found: error
 
   release:
