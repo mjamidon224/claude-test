@@ -22,6 +22,7 @@ public partial class MainForm : Form
         cmbAdapters.SelectedIndexChanged += (_, _) => OnAdapterSelected();
         btnRefresh.Click += (_, _) => LoadAdapters();
         btnLoadCurrent.Click += (_, _) => PopulateFields(logAction: true);
+        btnScan.Click += (_, _) => OpenScanDialog();
         btnApply.Click += OnApplyClicked;
         btnClose.Click += (_, _) => Close();
 
@@ -225,6 +226,7 @@ public partial class MainForm : Form
         grpDns.Enabled = hasAdapter;
         btnApply.Enabled = hasAdapter;
         btnLoadCurrent.Enabled = hasAdapter;
+        btnScan.Enabled = TryGetScanSubnet(out _, out _, out _);
     }
 
     private void SetBusy(bool busy)
@@ -232,6 +234,7 @@ public partial class MainForm : Form
         cmbAdapters.Enabled = !busy;
         btnRefresh.Enabled = !busy;
         btnLoadCurrent.Enabled = !busy;
+        btnScan.Enabled = !busy;
         btnApply.Enabled = !busy;
         grpAddress.Enabled = !busy;
         grpDns.Enabled = !busy;
@@ -531,6 +534,61 @@ public partial class MainForm : Form
     {
         MessageBox.Show(this, message, "Check the settings", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         focus?.Focus();
+    }
+
+    // ---------------------------------------------------------------- scanning
+
+    /// <summary>The subnet to scan, taken from the selected adapter's own address and mask.</summary>
+    private bool TryGetScanSubnet(out IPAddress address, out IPAddress mask, out int prefixLength)
+    {
+        address = IPAddress.None;
+        mask = IPAddress.None;
+        prefixLength = 0;
+
+        AdapterInfo? adapter = SelectedAdapter;
+        return adapter is not null
+               && IPv4Text.TryParse(adapter.IPv4Address, out address)
+               && IPv4Text.TryParse(adapter.SubnetMask, out mask)
+               && IPv4Text.IsValidMask(mask, out prefixLength);
+    }
+
+    private void OpenScanDialog()
+    {
+        AdapterInfo? adapter = SelectedAdapter;
+        if (adapter is null)
+        {
+            return;
+        }
+
+        if (!TryGetScanSubnet(out IPAddress address, out IPAddress mask, out int prefixLength))
+        {
+            Complain(
+                "This adapter has no usable IPv4 address and subnet mask yet, so there is no subnet "
+                + "to scan. Connect it, or give it a manual address first.",
+                null);
+            return;
+        }
+
+        long hostCount = NetworkScanner.CountHosts(prefixLength);
+        if (hostCount > NetworkScanner.MaxHosts
+            && MessageBox.Show(
+                this,
+                $"A /{prefixLength} subnet holds {hostCount:N0} addresses. Only the first "
+                + $"{NetworkScanner.MaxHosts:N0} will be probed, and that still takes a few minutes."
+                + Environment.NewLine + Environment.NewLine
+                + "Continue?",
+                "Large subnet",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+        {
+            return;
+        }
+
+        Log($"Scanning the subnet of {address} / {mask} on \"{adapter.Name}\"...");
+
+        using ScanForm scan = new(adapter, address, mask, CurrentTheme);
+        scan.ShowDialog(this);
     }
 
     // ---------------------------------------------------------------- theme

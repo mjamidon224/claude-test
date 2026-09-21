@@ -49,6 +49,11 @@ internal static class Theme
                     textBox.BorderStyle = dark ? BorderStyle.FixedSingle : BorderStyle.Fixed3D;
                     break;
 
+                case ListView listView:
+                    listView.BackColor = dark ? DarkField : SystemColors.Window;
+                    listView.ForeColor = dark ? DarkText : SystemColors.WindowText;
+                    break;
+
                 case ComboBox comboBox:
                     comboBox.FlatStyle = dark ? FlatStyle.Flat : FlatStyle.Standard;
                     comboBox.BackColor = dark ? DarkField : SystemColors.Window;
@@ -89,6 +94,13 @@ internal static class Theme
             }
         }
     }
+
+    /// <summary>Colours for the hand-drawn ListView header (the OS ignores BackColor there).</summary>
+    public static Color ListHeaderBackground(bool dark) =>
+        dark ? Color.FromArgb(55, 55, 58) : SystemColors.Control;
+
+    public static Color ListHeaderText(bool dark) =>
+        dark ? DarkText : SystemColors.ControlText;
 
     private static bool IsDim(Control control) =>
         control.Tag is string tag && string.Equals(tag, DimTag, StringComparison.Ordinal);

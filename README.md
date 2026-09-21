@@ -23,6 +23,10 @@ validation and a log of exactly what was run.
 - **Validation before anything is applied**: strict dotted-quad parsing, rejection of
   non-contiguous masks, of loopback / multicast / reserved / network / broadcast addresses,
   and a warning (not a refusal) when the gateway sits outside the chosen subnet.
+- **Network scan**: *Scan network...* sweeps the selected adapter's own subnet and lists
+  every device that answers, with its IP address, MAC address, reverse-DNS name, ping time
+  and a note marking this computer, the default gateway, the DHCP server and DNS servers.
+  Results export to CSV.
 - **Saved profiles**: name a set of settings ("office static", "lab DHCP", "customer site")
   and recall it from the dropdown. Recalling a profile only fills the fields — nothing
   reaches the adapter until you press Apply. Profiles are not tied to an adapter, so the
@@ -75,6 +79,27 @@ Runtime.
 > Launch the built `.exe` directly rather than using `dotnet run`. Under `dotnet run` the
 > app manifest is not applied, so the process is not elevated; the status bar says so and
 > offers a **Restart as administrator** link.
+
+## How the scan works
+
+Each address in the subnet is probed two ways at once, 64 addresses at a time:
+
+- **ICMP echo** (`System.Net.NetworkInformation.Ping`, 600 ms timeout) for a reachability
+  check and a round-trip time.
+- **ARP request** (`SendARP` in `iphlpapi.dll`) for the MAC address. This is the part that
+  matters for coverage: any device on the same layer-2 segment has to answer ARP to
+  communicate at all, while plenty of hosts — Windows with its default firewall, printers,
+  cameras — drop pings silently. A device is listed if *either* signal comes back, so the
+  `no reply` rows are real devices found by ARP alone.
+
+Device names come from a reverse DNS lookup (1.5 s timeout), so they appear only for hosts
+with a PTR record or an entry in your DNS server — expect blanks on a home network. There is
+no NetBIOS or mDNS query, and no MAC-to-vendor lookup, since that needs a bundled OUI
+database.
+
+The scan only covers the adapter's own subnet, because ARP does not cross a router. Runs are
+capped at 1024 addresses: a mask wider than /22 prompts first and then scans the first 1024.
+A scan of a /24 typically takes 10-20 seconds and can be stopped at any point.
 
 ## How it applies changes
 
@@ -131,12 +156,14 @@ also attaches both executables to a GitHub release.
 | `src/NetIPConfig/AppSettings.cs` | Profile and settings models |
 | `src/NetIPConfig/SettingsStore.cs` | Loads and saves `settings.json` |
 | `src/NetIPConfig/TextPromptDialog.cs` | Name prompt used when saving a profile |
+| `src/NetIPConfig/NetworkScanner.cs` | Subnet enumeration, ping + ARP sweep |
+| `src/NetIPConfig/ScanForm.cs` | Scan results window and CSV export |
 | `src/NetIPConfig/app.manifest` | Requests administrator elevation |
 
 No NuGet packages are referenced; everything comes from the Windows Desktop framework.
 
 ## Not yet covered
 
-IPv6, multiple IP addresses or gateways per adapter, gateway metrics, WINS, and DHCP
-release/renew. The `netsh` commands for these fit the same
+IPv6, multiple IP addresses or gateways per adapter, gateway metrics, WINS, DHCP
+release/renew, scanning a subnet other than the adapter's own, and MAC vendor names. The `netsh` commands for these fit the same
 `NetworkConfigurator.BuildCommands` pattern if you want to add them.

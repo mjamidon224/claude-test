@@ -72,6 +72,7 @@ partial class MainForm
         lblLog = new Label();
         txtLog = new TextBox();
         btnLoadCurrent = new Button();
+        btnScan = new Button();
         btnApply = new Button();
         btnClose = new Button();
 
@@ -304,12 +305,21 @@ partial class MainForm
         btnLoadCurrent.Text = "&Load current settings";
         btnLoadCurrent.UseVisualStyleBackColor = true;
 
+        // btnScan
+        btnScan.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        btnScan.Location = new Point(200, 7);
+        btnScan.Name = "btnScan";
+        btnScan.Size = new Size(150, 30);
+        btnScan.TabIndex = 11;
+        btnScan.Text = "&Scan network...";
+        btnScan.UseVisualStyleBackColor = true;
+
         // btnApply
         btnApply.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnApply.Location = new Point(356, 7);
         btnApply.Name = "btnApply";
         btnApply.Size = new Size(100, 30);
-        btnApply.TabIndex = 11;
+        btnApply.TabIndex = 12;
         btnApply.Text = "&Apply";
         btnApply.UseVisualStyleBackColor = true;
 
@@ -319,7 +329,7 @@ partial class MainForm
         btnClose.Location = new Point(468, 7);
         btnClose.Name = "btnClose";
         btnClose.Size = new Size(100, 30);
-        btnClose.TabIndex = 12;
+        btnClose.TabIndex = 13;
         btnClose.Text = "&Close";
         btnClose.UseVisualStyleBackColor = true;
 
@@ -343,6 +353,7 @@ partial class MainForm
 
         // pnlBottom — keeps the action buttons visible whatever the content does.
         pnlBottom.Controls.Add(btnLoadCurrent);
+        pnlBottom.Controls.Add(btnScan);
         pnlBottom.Controls.Add(btnApply);
         pnlBottom.Controls.Add(btnClose);
         pnlBottom.Dock = DockStyle.Bottom;
@@ -479,6 +490,7 @@ partial class MainForm
     private Label lblLog;
     private TextBox txtLog;
     private Button btnLoadCurrent;
+    private Button btnScan;
     private Button btnApply;
     private Button btnClose;
 
