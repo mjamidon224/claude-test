@@ -35,6 +35,7 @@ internal sealed class ChoiceDialog : Form
 
         AcceptButton = buttons[0];
         ActiveControl = buttons[0];
+        DialogLayout.Complete(this);
     }
 
     /// <summary>Escape closes without a choice, which every caller treats as the safe option.</summary>

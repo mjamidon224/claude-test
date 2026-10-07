@@ -38,18 +38,21 @@ internal sealed class Fireworks
     /// <summary>Advances by <paramref name="seconds"/>, launching new bursts while the show lasts.</summary>
     public void Update(double seconds, Size area)
     {
-        if (!IsActive || area.Width <= 0 || area.Height <= 0)
+        if (!IsActive)
         {
             return;
         }
 
+        // With no area (a minimised window) the show still runs its course, just unseen,
+        // so it ends on time rather than keeping the frame timer alive.
+        bool visible = area.Width > 0 && area.Height > 0;
         float scale = Math.Max(0.5f, area.Height / 800f);
 
         if (_launchTimeLeft > 0)
         {
             _launchTimeLeft -= seconds;
             _untilNextBurst -= seconds;
-            while (_untilNextBurst <= 0)
+            while (visible && _untilNextBurst <= 0)
             {
                 Burst(area, scale);
                 _untilNextBurst += 0.28 + _random.NextDouble() * 0.35;

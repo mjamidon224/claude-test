@@ -105,6 +105,23 @@ public class SaveTests
         Assert.Throws<FormatException>(() => Game.FromSavedGame(saved));
     }
 
+    [Fact]
+    public void Saved_game_with_missing_boards_is_rejected_rather_than_crashing()
+    {
+        // As a hand-edited file might have it: "Board": null, or a null in the history.
+        SavedGame noBoard = PlayedGame().ToSavedGame();
+        noBoard.Board = null;
+        Assert.Throws<FormatException>(() => Game.FromSavedGame(noBoard));
+
+        SavedGame nullHistoryEntry = PlayedGame().ToSavedGame();
+        nullHistoryEntry.History![0] = null;
+        Assert.Throws<FormatException>(() => Game.FromSavedGame(nullHistoryEntry));
+
+        SavedGame noHistory = PlayedGame().ToSavedGame();
+        noHistory.History = null;
+        Assert.False(Game.FromSavedGame(noHistory).CanUndo);
+    }
+
     private static Game PlayedGame()
     {
         Game game = new(Difficulty.FourSuits, 31337);

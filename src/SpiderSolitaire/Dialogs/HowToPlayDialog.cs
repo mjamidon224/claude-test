@@ -53,7 +53,7 @@ internal sealed class HowToPlayDialog : Form
             ScrollBars = ScrollBars.Vertical,
             WordWrap = true,
             BackColor = SystemColors.Window,
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point),
+            Font = DialogLayout.ReadingFont,
             Size = new Size(520, 420),
             Text = Rules,
             TabStop = false,
@@ -68,6 +68,7 @@ internal sealed class HowToPlayDialog : Form
         AcceptButton = close;
         CancelButton = close;
         ActiveControl = close;
+        DialogLayout.Complete(this);
     }
 
     public static void Present(IWin32Window owner)

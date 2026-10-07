@@ -62,7 +62,7 @@ internal sealed class BoardView : Control
     private Drag? _drag;
     private HintDisplay? _hint;
     private int _hintCursor;
-    private bool _lastClickMoved;
+    private bool _lastClickActed;
     private double _lastFrame;
 
     public BoardView()
@@ -232,12 +232,6 @@ internal sealed class BoardView : Control
     {
         _fireworks.Start(FireworksTime);
         EnsureTimer();
-    }
-
-    public void StopCelebration()
-    {
-        _fireworks.Stop();
-        Invalidate();
     }
 
     /// <summary>Repaints just the score box, for the clock.</summary>
@@ -607,15 +601,16 @@ internal sealed class BoardView : Control
             return;
         }
 
-        // The second click of a double-click lands wherever the first click's card went;
-        // ignore it rather than moving whatever card is now under the pointer.
-        if (e.Clicks > 1 && _lastClickMoved)
+        // The second click of a double-click is ignored if the first one already did
+        // something: it would otherwise move whatever card the first click left under the
+        // pointer, or deal a second row from the stock.
+        if (e.Clicks > 1 && _lastClickActed)
         {
-            _lastClickMoved = false;
+            _lastClickActed = false;
             return;
         }
 
-        _lastClickMoved = false;
+        _lastClickActed = false;
         CancelHint();
         FinishAnimations();
 
@@ -626,7 +621,9 @@ internal sealed class BoardView : Control
 
         if (hit.Pile == Pile.Stock)
         {
+            int movesBefore = _game.Moves;
             Deal();
+            _lastClickActed = _game.Moves != movesBefore;
         }
         else if (hit.Pile == Pile.Column && hit.Position >= 0 && _shown!.CanPickUp(hit.PileIndex, hit.Position))
         {
@@ -798,7 +795,7 @@ internal sealed class BoardView : Control
             return;
         }
 
-        _lastClickMoved = true;
+        _lastClickActed = true;
         Play(stages, null);
     }
 

@@ -8,8 +8,20 @@ internal static class DialogLayout
 {
     public static readonly Color HeadingColor = Color.FromArgb(0, 51, 153);
 
+    // Shared rather than created per dialog, since controls never dispose fonts given to them.
+    public static readonly Font HeadingFont = new("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
+    public static readonly Font BoldFont = new("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point);
+    public static readonly Font LargeFont = new("Segoe UI", 10.5F, FontStyle.Regular, GraphicsUnit.Point);
+    public static readonly Font ReadingFont = new("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
+
+    /// <summary>
+    /// Sets up a dialog and suspends its layout; call <see cref="Complete"/> once its
+    /// controls are added. Scaling for the display's DPI happens when layout resumes, so it
+    /// covers every control rather than an empty form.
+    /// </summary>
     public static void Configure(Form form, string title)
     {
+        form.SuspendLayout();
         form.Text = title;
         form.AutoScaleDimensions = new SizeF(7F, 15F);
         form.AutoScaleMode = AutoScaleMode.Font;
@@ -20,6 +32,12 @@ internal static class DialogLayout
         form.MinimizeBox = false;
         form.ShowInTaskbar = false;
         form.StartPosition = FormStartPosition.CenterParent;
+    }
+
+    public static void Complete(Form form)
+    {
+        form.ResumeLayout(false);
+        form.PerformLayout();
     }
 
     /// <summary>
@@ -46,7 +64,7 @@ internal static class DialogLayout
     public static Label Heading(string text) => new()
     {
         AutoSize = true,
-        Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point),
+        Font = HeadingFont,
         ForeColor = HeadingColor,
         MaximumSize = new Size(460, 0),
         Margin = new Padding(0, 0, 0, 8),

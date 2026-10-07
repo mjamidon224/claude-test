@@ -60,7 +60,7 @@ internal sealed class StatisticsDialog : Form
         for (int i = 0; i < RowNames.Length; i++)
         {
             grid.Controls.Add(new Label { AutoSize = true, Text = RowNames[i] + ":", Margin = new Padding(0, 2, 24, 2) }, 0, i);
-            _values[i] = new Label { AutoSize = true, Margin = new Padding(0, 2, 0, 2), Font = new Font(Font, FontStyle.Bold) };
+            _values[i] = new Label { AutoSize = true, Margin = new Padding(0, 2, 0, 2), Font = DialogLayout.BoldFont };
             grid.Controls.Add(_values[i], 1, i);
         }
 
@@ -80,7 +80,7 @@ internal sealed class StatisticsDialog : Form
         _scores.Columns.Add("Score", 70, HorizontalAlignment.Right);
         _scores.Columns.Add("Moves", 64, HorizontalAlignment.Right);
         _scores.Columns.Add("Time", 70, HorizontalAlignment.Right);
-        _scores.Columns.Add("Date", 140);
+        _scores.Columns.Add("Date", -2);
         stack.Controls.Add(_scores);
 
         Button reset = DialogLayout.Button("Reset...");
@@ -93,6 +93,7 @@ internal sealed class StatisticsDialog : Form
         CancelButton = close;
 
         Fill();
+        DialogLayout.Complete(this);
     }
 
     private Difficulty Selected => DifficultyExtensions.All[Math.Max(0, _difficulty.SelectedIndex)];

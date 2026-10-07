@@ -30,7 +30,7 @@ internal sealed class DifficultyDialog : Form
                 AutoSize = true,
                 MinimumSize = new Size(150, 64),
                 Margin = new Padding(0, 0, 10, 0),
-                Font = new Font("Segoe UI", 10.5F, FontStyle.Regular, GraphicsUnit.Point),
+                Font = DialogLayout.LargeFont,
                 Text = $"{difficulty.DisplayName()}\n{difficulty.SuitsText()}",
                 UseVisualStyleBackColor = true,
             };
@@ -51,6 +51,7 @@ internal sealed class DifficultyDialog : Form
 
         stack.Controls.Add(row);
         Controls.Add(stack);
+        DialogLayout.Complete(this);
     }
 
     protected override bool ProcessDialogKey(Keys keyData)

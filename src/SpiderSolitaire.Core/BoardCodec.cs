@@ -59,8 +59,13 @@ public static class BoardCodec
     /// the stock is whole rows and that every completed suit really is Ace to King of one
     /// suit. Throws <see cref="FormatException"/> otherwise.
     /// </summary>
-    public static Board Decode(string text, Difficulty difficulty)
+    public static Board Decode(string? text, Difficulty difficulty)
     {
+        if (text is null)
+        {
+            throw new FormatException("There is no board.");
+        }
+
         string[] sections = text.Split('/');
         if (sections.Length != 3)
         {

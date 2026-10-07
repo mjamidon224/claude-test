@@ -44,7 +44,8 @@ internal sealed class MainForm : Form
         AutoScaleMode = AutoScaleMode.Font;
         Text = AppName;
         MinimumSize = new Size(640, 480);
-        Size = new Size(1100, 780);
+        Rectangle screen = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 800);
+        Size = new Size(Math.Max(MinimumSize.Width, screen.Width * 3 / 4), Math.Max(MinimumSize.Height, screen.Height * 4 / 5));
         StartPosition = FormStartPosition.CenterScreen;
 
         try
@@ -75,6 +76,12 @@ internal sealed class MainForm : Form
         _clock.Tick += (_, _) => OnClockTick();
         _winDialogDelay.Tick += (_, _) =>
         {
+            // If another dialog is open, wait for it to close rather than stacking on top.
+            if (!CanFocus)
+            {
+                return;
+            }
+
             _winDialogDelay.Stop();
             ShowWinDialog();
         };
@@ -119,15 +126,27 @@ internal sealed class MainForm : Form
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         // Single-letter shortcuts, as in the Windows game. Menu items cannot own a shortcut
-        // without a modifier key, so these are handled here.
-        switch (keyData)
+        // without a modifier key, so these are handled here, but only when the key is aimed
+        // at the table: in menu mode (after pressing Alt) H and D belong to the menus.
+        if (keyData is Keys.H or Keys.D && (msg.HWnd == Handle || msg.HWnd == _board.Handle))
         {
-            case Keys.H:
-                OnHint();
-                return true;
-            case Keys.D:
-                OnDeal();
-                return true;
+            // Holding a key down would otherwise deal row after row.
+            const int WmKeyDown = 0x0100;
+            const long WasAlreadyDown = 0x40000000;
+            bool repeat = msg.Msg == WmKeyDown && ((long)msg.LParam & WasAlreadyDown) != 0;
+            if (!repeat)
+            {
+                if (keyData == Keys.H)
+                {
+                    OnHint();
+                }
+                else
+                {
+                    OnDeal();
+                }
+            }
+
+            return true;
         }
 
         return base.ProcessCmdKey(ref msg, keyData);
@@ -259,6 +278,11 @@ internal sealed class MainForm : Form
     private void Begin(Game game, bool animate)
     {
         _winDialogDelay.Stop();
+
+        // A save left on disk (by an aborted shutdown, say) belongs to a game that is now
+        // over, and must not be offered, or counted, again next time.
+        Storage.DeleteSavedGame();
+
         _game = game;
         _winRecorded = false;
         _winPlace = null;
@@ -611,13 +635,15 @@ internal sealed class MainForm : Form
         TimeSpan delta = now - _lastClockReading;
         _lastClockReading = now;
 
-        // The clock runs from the first move until the game is won, and stops while minimised.
-        if (_game is null || !InProgress || WindowState == FormWindowState.Minimized)
+        // The clock runs from the first move until the game is won. It stops while the
+        // window is minimised or a dialog is open, and a long gap (the PC sleeping, say)
+        // counts as no more than a second.
+        if (_game is null || !InProgress || WindowState == FormWindowState.Minimized || !CanFocus)
         {
             return;
         }
 
-        _game.Elapsed += delta;
+        _game.Elapsed += delta < TimeSpan.FromSeconds(1) ? delta : TimeSpan.FromSeconds(1);
         int second = (int)_game.Elapsed.TotalSeconds;
         if (second != _lastShownSecond)
         {
@@ -635,6 +661,7 @@ internal sealed class MainForm : Form
 
         _statistics.For(_game.Difficulty).RecordLoss();
         SaveStatistics();
+        Storage.DeleteSavedGame();
     }
 
     private void SaveStatistics() => Storage.SaveStatistics(_statistics);

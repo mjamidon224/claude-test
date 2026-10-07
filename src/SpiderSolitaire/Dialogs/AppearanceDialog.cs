@@ -46,6 +46,7 @@ internal sealed class AppearanceDialog : Form
 
         AcceptButton = ok;
         CancelButton = cancel;
+        DialogLayout.Complete(this);
     }
 
     /// <summary>The chosen card back and table, or null if cancelled.</summary>

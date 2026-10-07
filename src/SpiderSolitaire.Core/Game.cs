@@ -146,7 +146,7 @@ public sealed class Game
         Moves = Moves,
         ElapsedSeconds = Elapsed.TotalSeconds,
         Board = BoardCodec.Encode(Board),
-        History = _history.Select(BoardCodec.Encode).ToList(),
+        History = _history.Select(board => (string?)BoardCodec.Encode(board)).ToList(),
     };
 
     /// <summary>Restores a saved game. Throws <see cref="FormatException"/> if it does not describe a valid game.</summary>
@@ -162,7 +162,7 @@ public sealed class Game
             throw new FormatException("The move count or time is out of range.");
         }
 
-        List<Board> history = (saved.History ?? new List<string>()).Select(text => BoardCodec.Decode(text, saved.Difficulty)).ToList();
+        List<Board> history = (saved.History ?? new List<string?>()).Select(text => BoardCodec.Decode(text, saved.Difficulty)).ToList();
         Game game = new(saved.Seed, BoardCodec.Decode(saved.Board, saved.Difficulty), saved.Moves, TimeSpan.FromSeconds(saved.ElapsedSeconds), history);
 
         // A file written mid-animation by an older build, or edited by hand, could hold an
@@ -183,8 +183,8 @@ public sealed class SavedGame
 
     public double ElapsedSeconds { get; set; }
 
-    public string Board { get; set; } = "";
+    public string? Board { get; set; } = "";
 
     /// <summary>Earlier boards, oldest first, so undo still works after resuming.</summary>
-    public List<string>? History { get; set; } = new();
+    public List<string?>? History { get; set; } = new();
 }

@@ -58,6 +58,7 @@ internal sealed class OptionsDialog : Form
 
         AcceptButton = ok;
         CancelButton = cancel;
+        DialogLayout.Complete(this);
     }
 
     public void ApplyTo(AppSettings settings)
@@ -80,7 +81,7 @@ internal sealed class OptionsDialog : Form
     private static Label Section(string text) => new()
     {
         AutoSize = true,
-        Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point),
+        Font = DialogLayout.BoldFont,
         Margin = new Padding(0, 0, 0, 4),
         Text = text,
     };
