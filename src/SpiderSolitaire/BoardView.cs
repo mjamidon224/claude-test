@@ -22,7 +22,8 @@ internal enum HintOutcome
 /// <summary>
 /// The table. It draws the game, plays every change as an animation, and turns mouse
 /// input into moves: drag a run onto another column, click a run to send it to the best
-/// place, click the stock to deal.
+/// place, click the stock to deal. The Hint, Undo and Undo All buttons under the score
+/// are drawn here too; clicking one raises <see cref="ButtonClicked"/>.
 /// </summary>
 /// <remarks>
 /// The game itself changes instantly; what this shows lags behind while an animation
@@ -51,6 +52,7 @@ internal sealed class BoardView : Control
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly Fireworks _fireworks = new();
     private readonly Queue<Stage> _pending = new();
+    private readonly ToolTip _toolTip = new();
 
     private Game? _game;
     private Board? _shown;
@@ -63,6 +65,8 @@ internal sealed class BoardView : Control
     private HintDisplay? _hint;
     private int _hintCursor;
     private bool _lastClickActed;
+    private BoardButton? _hoverButton;
+    private BoardButton? _pressedButton;
     private double _lastFrame;
 
     public BoardView()
@@ -92,6 +96,9 @@ internal sealed class BoardView : Control
 
     /// <summary>Everything shown has caught up with the game.</summary>
     public event EventHandler? AnimationsFinished;
+
+    /// <summary>One of the buttons under the score was clicked while enabled.</summary>
+    public event EventHandler<BoardButton>? ButtonClicked;
 
     public bool AnimationsEnabled { get; set; } = true;
 
@@ -191,6 +198,21 @@ internal sealed class BoardView : Control
         }
     }
 
+    /// <summary>Goes back to the opening deal in one step.</summary>
+    public void UndoAll()
+    {
+        if (!PrepareForAction())
+        {
+            return;
+        }
+
+        IReadOnlyList<Stage>? stages = _game!.UndoAll();
+        if (stages is not null)
+        {
+            Play(stages, null);
+        }
+    }
+
     /// <summary>Highlights the next suggested move; pressing again cycles through the others.</summary>
     public HintOutcome ShowHint()
     {
@@ -234,14 +256,8 @@ internal sealed class BoardView : Control
         EnsureTimer();
     }
 
-    /// <summary>Repaints just the score box, for the clock.</summary>
-    public void InvalidateScore()
-    {
-        if (CurrentLayout is { } layout)
-        {
-            Invalidate(Rectangle.Inflate(Rectangle.Round(layout.ScorePanel), 2, 2));
-        }
-    }
+    /// <summary>Repaints just the score and buttons, for the clock.</summary>
+    public void InvalidateScore() => InvalidateControls();
 
     /// <summary>Jumps any animation to its end, so what is shown matches the game.</summary>
     public void FinishAnimations()
@@ -268,6 +284,7 @@ internal sealed class BoardView : Control
         if (disposing)
         {
             _frames.Dispose();
+            _toolTip.Dispose();
             _painter.Dispose();
             _staticLayer?.Dispose();
         }
@@ -468,8 +485,6 @@ internal sealed class BoardView : Control
         graphics.InterpolationMode = InterpolationMode.HighQualityBilinear;
         graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-        _painter.PaintScore(graphics, layout, _game.Score, _game.Moves, _game.Elapsed);
-
         if (_animation is not null)
         {
             PaintAnimation(graphics, layout, now);
@@ -509,7 +524,7 @@ internal sealed class BoardView : Control
         }
 
         using Graphics graphics = Graphics.FromImage(_staticLayer);
-        _painter.PaintStatic(graphics, layout, moving);
+        _painter.PaintStatic(graphics, layout, moving, new ScoreInfo(_game!.Score, _game.Moves, _game.Elapsed), ButtonStates());
         _staticDirty = false;
     }
 
@@ -614,8 +629,20 @@ internal sealed class BoardView : Control
         CancelHint();
         FinishAnimations();
 
-        if (_game.IsWon || CurrentLayout?.HitTest(e.Location) is not { } hit)
+        if (CurrentLayout is not { } layout)
         {
+            return;
+        }
+
+        // Cards come first: a column long enough to reach the bottom row covers the buttons.
+        if (_game.IsWon || layout.HitTest(e.Location) is not { } hit)
+        {
+            if (layout.ButtonAt(e.Location) is { } button && IsEnabled(button))
+            {
+                _pressedButton = button;
+                InvalidateControls();
+            }
+
             return;
         }
 
@@ -640,6 +667,13 @@ internal sealed class BoardView : Control
             // The button came up somewhere we did not hear about (another window, say).
             _press = null;
             CancelDrag(animate: true);
+            if (_pressedButton is not null)
+            {
+                _pressedButton = null;
+                InvalidateControls();
+            }
+
+            UpdateHover(e.Location);
             return;
         }
 
@@ -671,6 +705,18 @@ internal sealed class BoardView : Control
             return;
         }
 
+        if (_pressedButton is { } pressed)
+        {
+            _pressedButton = null;
+            InvalidateControls();
+            if (CurrentLayout?.ButtonAt(e.Location) == pressed && IsEnabled(pressed))
+            {
+                ButtonClicked?.Invoke(this, pressed);
+            }
+
+            return;
+        }
+
         Press? press = _press;
         _press = null;
 
@@ -682,6 +728,12 @@ internal sealed class BoardView : Control
         {
             ClickMove(press);
         }
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        UpdateHover(null);
     }
 
     protected override void OnMouseCaptureChanged(EventArgs e)
@@ -837,6 +889,49 @@ internal sealed class BoardView : Control
             .ToList();
 
         StartAnimation(tweens);
+    }
+
+    private bool IsEnabled(BoardButton button) =>
+        _game is { } game && (button == BoardButton.Hint ? !game.IsWon : game.CanUndo);
+
+    private IReadOnlyList<BoardButtonState> ButtonStates() => Enum.GetValues<BoardButton>()
+        .Select(button => new BoardButtonState(button, IsEnabled(button), button == _hoverButton, button == _pressedButton))
+        .ToList();
+
+    /// <summary>Tracks which button the pointer is over, for the hover look and the tooltip.</summary>
+    private void UpdateHover(Point? location)
+    {
+        BoardButton? over = null;
+        if (location is { } point && _drag is null && CurrentLayout is { } layout && layout.HitTest(point) is null)
+        {
+            over = layout.ButtonAt(point);
+        }
+
+        if (over == _hoverButton)
+        {
+            return;
+        }
+
+        _hoverButton = over;
+        _toolTip.SetToolTip(this, over switch
+        {
+            BoardButton.Hint => "Show a move worth making (H)",
+            BoardButton.Undo => "Take back the last move (Ctrl+Z)",
+            BoardButton.UndoAll => "Go back to the start of this game",
+            _ => null,
+        });
+
+        InvalidateControls();
+    }
+
+    /// <summary>Redraws the static layer but only repaints the score and buttons.</summary>
+    private void InvalidateControls()
+    {
+        _staticDirty = true;
+        if (CurrentLayout is { } layout)
+        {
+            Invalidate(Rectangle.Inflate(Rectangle.Round(layout.ControlsArea), 2, 2));
+        }
     }
 
     private void CancelHint()

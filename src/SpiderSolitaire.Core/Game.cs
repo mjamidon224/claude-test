@@ -7,7 +7,8 @@ namespace SpiderSolitaire.Core;
 /// <remarks>
 /// Scoring follows the Windows game: start on 500, lose a point for every move (dealing
 /// and undoing count as moves), gain 100 for every completed suit. Undo restores the
-/// cards but not the points, so it cannot be used to farm suit bonuses.
+/// cards but not the points, so it cannot be used to farm suit bonuses. Undo all goes
+/// back to the deal in one step and, like a single undo, counts as one move.
 /// </remarks>
 public sealed class Game
 {
@@ -91,6 +92,20 @@ public sealed class Game
 
         Board = _history[^1];
         _history.RemoveAt(_history.Count - 1);
+        Moves++;
+        return new[] { new Stage(StageKind.Undo, Board) };
+    }
+
+    /// <summary>Goes back to the opening deal in one step, which counts as a single move.</summary>
+    public IReadOnlyList<Stage>? UndoAll()
+    {
+        if (!CanUndo)
+        {
+            return null;
+        }
+
+        Board = _history[0];
+        _history.Clear();
         Moves++;
         return new[] { new Stage(StageKind.Undo, Board) };
     }

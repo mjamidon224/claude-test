@@ -15,6 +15,14 @@ internal readonly record struct Placement(Card Card, RectangleF Rect, bool FaceU
 
 internal readonly record struct HitResult(Pile Pile, int PileIndex, int Position);
 
+/// <summary>The buttons under the score, left to right.</summary>
+internal enum BoardButton
+{
+    Hint,
+    Undo,
+    UndoAll,
+}
+
 /// <summary>
 /// The geometry of the table for one board at one window size: card size, where every
 /// card sits, and what lies under a point.
@@ -22,7 +30,8 @@ internal readonly record struct HitResult(Pile Pile, int PileIndex, int Position
 /// <remarks>
 /// Like the Windows game, the ten columns run across the top, finished suits stack in
 /// the bottom left, the stock sits in the bottom right with one card per remaining deal,
-/// and the score sits between them. Long columns squeeze their spacing to stay on screen.
+/// and the score, with the Hint, Undo and Undo All buttons under it, sits between them.
+/// Long columns squeeze their spacing to stay on screen.
 /// </remarks>
 internal sealed class BoardLayout
 {
@@ -35,6 +44,10 @@ internal sealed class BoardLayout
     private const float StockSpacing = 0.17f;
     private const float FoundationSpacing = 0.3f;
     private const int StockPiles = 5;
+    private const float ControlsWidth = 3.4f;
+    private const float PanelHeight = 0.34f;
+    private const float ButtonHeight = 0.34f;
+    private const float ControlsSpacing = 0.08f;
 
     private readonly Dictionary<int, Placement> _byId = new();
     private readonly List<Placement> _ordered = new();
@@ -103,16 +116,51 @@ internal sealed class BoardLayout
     public RectangleF FoundationPile(int index) =>
         new(_left + index * CardSize.Width * FoundationSpacing, BottomRowY, CardSize.Width, CardSize.Height);
 
-    /// <summary>The score box, centred under the columns between the finished suits and the stock.</summary>
+    /// <summary>
+    /// The score box: one line, centred under the columns between the finished suits and
+    /// the stock, with the buttons beneath it. Together they take the height of a card.
+    /// </summary>
     public RectangleF ScorePanel
     {
         get
         {
-            float panelWidth = CardSize.Width * 2.3f;
-            float panelHeight = CardSize.Height * 0.62f;
+            float width = CardSize.Width * ControlsWidth;
+            float height = CardSize.Height * (PanelHeight + ControlsSpacing + ButtonHeight);
             float centre = (_left + Right) / 2;
-            return new RectangleF(centre - panelWidth / 2, BottomRowY + (CardSize.Height - panelHeight) / 2, panelWidth, panelHeight);
+            return new RectangleF(
+                (float)Math.Round(centre - width / 2),
+                (float)Math.Round(BottomRowY + (CardSize.Height - height) / 2),
+                (float)Math.Round(width),
+                (float)Math.Round(CardSize.Height * PanelHeight));
         }
+    }
+
+    /// <summary>The bottom area that holds the score and buttons, for repainting just that part.</summary>
+    public RectangleF ControlsArea => RectangleF.Union(ScorePanel, ButtonRect(BoardButton.UndoAll));
+
+    public RectangleF ButtonRect(BoardButton button)
+    {
+        RectangleF panel = ScorePanel;
+        float gap = (float)Math.Round(CardSize.Width * 0.12f);
+        float width = (float)Math.Floor((panel.Width - 2 * gap) / 3);
+        return new RectangleF(
+            panel.Left + (int)button * (width + gap),
+            (float)Math.Round(panel.Bottom + CardSize.Height * ControlsSpacing),
+            width,
+            (float)Math.Round(CardSize.Height * ButtonHeight));
+    }
+
+    public BoardButton? ButtonAt(PointF point)
+    {
+        foreach (BoardButton button in Enum.GetValues<BoardButton>())
+        {
+            if (ButtonRect(button).Contains(point))
+            {
+                return button;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The topmost card or pile under a point, or null for bare table.</summary>

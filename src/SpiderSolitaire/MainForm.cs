@@ -25,6 +25,7 @@ internal sealed class MainForm : Form
     private readonly bool _firstRun;
 
     private ToolStripMenuItem _undoItem = null!;
+    private ToolStripMenuItem _undoAllItem = null!;
     private ToolStripMenuItem _hintItem = null!;
     private ToolStripMenuItem _dealItem = null!;
 
@@ -72,6 +73,7 @@ internal sealed class MainForm : Form
         _board.DealRefused += (_, _) => OnDealRefused();
         _board.MoveRefused += (_, _) => _sounds.Play(Sound.Invalid);
         _board.AnimationsFinished += (_, _) => CheckForWin();
+        _board.ButtonClicked += (_, button) => OnBoardButton(button);
 
         _clock.Tick += (_, _) => OnClockTick();
         _winDialogDelay.Tick += (_, _) =>
@@ -232,6 +234,7 @@ internal sealed class MainForm : Form
         game.DropDownItems.Add(Item("&Restart This Game", Keys.None, null, (_, _) => OnRestart()));
         game.DropDownItems.Add(new ToolStripSeparator());
         game.DropDownItems.Add(_undoItem = Item("&Undo", Keys.Control | Keys.Z, null, (_, _) => _board.Undo()));
+        game.DropDownItems.Add(_undoAllItem = Item("Undo A&ll", Keys.None, null, (_, _) => OnUndoAll()));
         game.DropDownItems.Add(_hintItem = Item("&Hint", Keys.None, "H", (_, _) => OnHint()));
         game.DropDownItems.Add(_dealItem = Item("&Deal Next Row", Keys.None, "D", (_, _) => OnDeal()));
         game.DropDownItems.Add(new ToolStripSeparator());
@@ -269,6 +272,7 @@ internal sealed class MainForm : Form
     {
         bool playing = _game is { IsWon: false };
         _undoItem.Enabled = _game?.CanUndo == true;
+        _undoAllItem.Enabled = _undoItem.Enabled;
         _hintItem.Enabled = playing;
         _dealItem.Enabled = playing && _game!.Board.Stock.Length > 0;
     }
@@ -457,6 +461,45 @@ internal sealed class MainForm : Form
 
                 StartNewGame(_settings.Difficulty);
                 break;
+        }
+    }
+
+    private void OnBoardButton(BoardButton button)
+    {
+        switch (button)
+        {
+            case BoardButton.Hint:
+                OnHint();
+                break;
+            case BoardButton.Undo:
+                _board.Undo();
+                break;
+            case BoardButton.UndoAll:
+                OnUndoAll();
+                break;
+        }
+    }
+
+    /// <summary>Back to the deal, after a check: there is no redo, so a stray click would lose the whole game.</summary>
+    private void OnUndoAll()
+    {
+        if (_game is not { CanUndo: true })
+        {
+            return;
+        }
+
+        _board.FinishAnimations();
+        int choice = ChoiceDialog.Ask(
+            this,
+            "Undo All",
+            "Go back to the start of this game?",
+            "Every move since the deal is taken back, and the cards return to how they were dealt. This counts as one move, and it can't be undone.",
+            "Undo all",
+            "Keep playing");
+
+        if (choice == 0)
+        {
+            _board.UndoAll();
         }
     }
 

@@ -36,10 +36,15 @@ origin spider-v1.0.0`) also attaches the executables to a GitHub release.
   column is empty. The one exception is when fewer than ten cards are left on the table,
   where the rule would otherwise make the game impossible to finish.
 - **Finished suits**: a King-to-Ace run in one suit flies off to the bottom left by itself.
+- **Buttons on the table**: **Hint**, **Undo** and **Undo All** sit under the score, between
+  the finished suits and the stock. They grey out when there is nothing to do, and show
+  their shortcut when you hover over them.
 - **Scoring**: start on 500, lose a point per move (deals and undos count), gain 100 per
   finished suit.
 - **Undo** (Ctrl+Z) as far back as the start of the game, including after resuming a
   saved game. Undoing a finished suit takes its 100 points back too.
+- **Undo All** goes straight back to the deal. It asks first, since there is no redo, and
+  counts as a single move.
 - **Hint** (**H**): highlights a move worth making, then where it goes; press again for the
   next one. Moves that uncover a card or empty a column come first, and pointless shuffles
   are left out. With no moves left it points at the stock, or offers to undo, restart or
@@ -59,7 +64,9 @@ origin spider-v1.0.0`) also attaches the executables to a GitHub release.
 | F7 | Change appearance |
 | F1 | How to play |
 
-*Game → Restart This Game* replays the same deal from the start.
+*Game → Undo All* does the same as the button. *Game → Restart This Game* replays the same
+deal from the start as a new game, which counts the current one as a loss; Undo All keeps
+the same game going.
 
 ### Statistics
 
@@ -125,7 +132,7 @@ dotnet test tests/SpiderSolitaire.Core.Tests
 | --- | --- |
 | `src/SpiderSolitaire.Core/` | The rules: cards, seeded shuffle, board, moves, deals, undo, scoring, hints, save format, statistics |
 | `src/SpiderSolitaire/MainForm.cs` | Window, menus and shortcuts, clock, new/restart/save/resume/win flow |
-| `src/SpiderSolitaire/BoardView.cs` | The table: mouse input, drag and drop, click-to-move, animations, hints |
+| `src/SpiderSolitaire/BoardView.cs` | The table: mouse input, drag and drop, click-to-move, the Hint / Undo / Undo All buttons, animations, hints |
 | `src/SpiderSolitaire/Rendering/` | Card faces and backs drawn from vectors, table layout, painting, fireworks |
 | `src/SpiderSolitaire/Dialogs/` | Difficulty, options, statistics, appearance, help and prompt dialogs |
 | `src/SpiderSolitaire/SoundEffects.cs` | Synthesised sound effects |

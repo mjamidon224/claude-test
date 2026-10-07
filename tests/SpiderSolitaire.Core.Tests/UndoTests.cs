@@ -73,6 +73,69 @@ public class UndoTests
     }
 
     [Fact]
+    public void Undo_all_goes_back_to_the_deal_as_one_move()
+    {
+        Game game = new(Build(Columns((0, "9S"), (1, "(5H) 8S"), (2, "7S"), (3, "6S"))));
+        Board start = game.Board;
+
+        game.TryMove(1, 1, 0);
+        game.TryMove(2, 0, 0);
+        game.TryMove(3, 0, 0);
+        game.Undo();
+        Assert.Equal(4, game.Moves);
+
+        IReadOnlyList<Stage>? stages = game.UndoAll();
+
+        Assert.NotNull(stages);
+        Assert.Equal(StageKind.Undo, Assert.Single(stages).Kind);
+        Assert.Same(start, game.Board);
+        Assert.Equal(5, game.Moves);
+        Assert.Equal(495, game.Score);
+        Assert.False(game.CanUndo);
+        Assert.Null(game.UndoAll());
+    }
+
+    [Fact]
+    public void Undo_all_takes_back_deals_and_finished_suits()
+    {
+        Game game = new(Difficulty.OneSuit, 3);
+        string opening = BoardCodec.Encode(game.Board);
+        HashSet<string> seen = new();
+
+        // Play by hints until a suit is finished, so there is a bonus to take back.
+        while (game.Board.Foundations.IsEmpty)
+        {
+            bool repeated = !seen.Add(BoardCodec.Encode(game.Board));
+            IReadOnlyList<Hint> hints = game.FindHints();
+            if (hints.Count > 0 && !repeated)
+            {
+                game.TryMove(hints[0].FromColumn, hints[0].FromIndex, hints[0].ToColumn);
+            }
+            else
+            {
+                Assert.NotNull(game.TryDeal());
+            }
+        }
+
+        int moves = game.Moves;
+        game.UndoAll();
+
+        Assert.Equal(opening, BoardCodec.Encode(game.Board));
+        Assert.Equal(50, game.Board.Stock.Length);
+        Assert.Empty(game.Board.Foundations);
+        Assert.Equal(Game.StartingScore - (moves + 1), game.Score);
+    }
+
+    [Fact]
+    public void Nothing_to_undo_all_at_the_start()
+    {
+        Game game = new(Difficulty.FourSuits, 12);
+
+        Assert.Null(game.UndoAll());
+        Assert.Equal(0, game.Moves);
+    }
+
+    [Fact]
     public void No_undo_once_the_game_is_won()
     {
         string[] columns = Columns((0, "KS QS JS TS 9S 8S 7S 6S 5S 4S 3S 2S"), (1, "AS"));
@@ -84,6 +147,7 @@ public class UndoTests
         Assert.True(game.IsWon);
         Assert.False(game.CanUndo);
         Assert.Null(game.Undo());
+        Assert.Null(game.UndoAll());
         Assert.Empty(game.FindHints());
     }
 

@@ -24,8 +24,11 @@ internal sealed class HowToPlayDialog : Form
         "DIFFICULTY\r\n" +
         "Beginner uses one suit, Intermediate two and Advanced all four. The more suits, the harder it is to build same-suit runs. Change it under Game > Options.\r\n" +
         "\r\n" +
+        "HINT AND UNDO\r\n" +
+        "The buttons under the score give a hint, take back the last move, or take back everything and go back to the deal (Undo All). Undo All asks first, since it can't be reversed.\r\n" +
+        "\r\n" +
         "SCORING\r\n" +
-        "You start with 500 points. Every move costs a point (dealing and undoing count as moves) and every finished suit earns 100.\r\n" +
+        "You start with 500 points. Every move costs a point (dealing, undoing and Undo All each count as one move) and every finished suit earns 100.\r\n" +
         "\r\n" +
         "STATISTICS\r\n" +
         "A game counts when you win it, or when you give it up after making a move: starting a new game, restarting, or exiting without saving all count as a loss.\r\n" +
