@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <RootNamespace>SpiderSolitaire</RootNamespace>
+    <AssemblyName>SpiderSolitaire</AssemblyName>
+    <Product>Spider Solitaire</Product>
+    <AssemblyTitle>Spider Solitaire</AssemblyTitle>
+    <Version>1.0.0</Version>
+    <ApplicationIcon>Spider.ico</ApplicationIcon>
+
+    <!-- Lets the project restore/build from a non-Windows machine too. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SpiderSolitaire.Core\SpiderSolitaire.Core.csproj" />
+  </ItemGroup>
+
+</Project>

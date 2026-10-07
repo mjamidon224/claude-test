@@ -1,0 +1,115 @@
+name: Build Spider Solitaire
+
+on:
+  push:
+    branches: ['**']
+    tags: ['spider-v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test game rules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run tests
+        run: dotnet test tests/SpiderSolitaire.Core.Tests --configuration Release
+
+  build:
+    name: Build ${{ matrix.artifact }}
+    needs: test
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Self-contained: runs on a machine with no .NET installed.
+          - runtime: win-x64
+            selfContained: true
+            artifact: SpiderSolitaire-win-x64
+          - runtime: win-arm64
+            selfContained: true
+            artifact: SpiderSolitaire-win-arm64
+          # Framework-dependent: a couple of MB, needs the .NET 8 Desktop Runtime.
+          - runtime: win-x64
+            selfContained: false
+            artifact: SpiderSolitaire-win-x64-requires-dotnet8
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        run: dotnet build SpiderSolitaire.sln --configuration Release
+
+      - name: Publish single-file executable
+        run: >
+          dotnet publish src/SpiderSolitaire/SpiderSolitaire.csproj
+          --configuration Release
+          --runtime ${{ matrix.runtime }}
+          --self-contained ${{ matrix.selfContained }}
+          --output publish/${{ matrix.artifact }}
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=${{ matrix.selfContained }}
+          -p:DebugType=none
+
+      - name: Show what was produced
+        shell: pwsh
+        run: >
+          Get-ChildItem publish/${{ matrix.artifact }}
+          | Select-Object Name, @{ Name = 'MB'; Expression = { [math]::Round($_.Length / 1MB, 1) } }
+          | Format-Table -AutoSize
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: publish/${{ matrix.artifact }}/SpiderSolitaire.exe
+          if-no-files-found: error
+
+  release:
+    name: Attach executables to release
+    if: startsWith(github.ref, 'refs/tags/spider-v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Name each executable after its runtime
+        run: |
+          mkdir -p release
+          for directory in artifacts/*/; do
+            cp "${directory}SpiderSolitaire.exe" "release/$(basename "$directory").exe"
+          done
+          ls -l release
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/*.exe --repo "$GITHUB_REPOSITORY" --title "Spider Solitaire ${GITHUB_REF_NAME#spider-}" --generate-notes

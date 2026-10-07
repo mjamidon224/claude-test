@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The rules of the game with no UI, so they build and test on any OS. The Windows app
+    references this project; the tests exercise it directly.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <RootNamespace>SpiderSolitaire.Core</RootNamespace>
+    <AssemblyName>SpiderSolitaire.Core</AssemblyName>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SpiderSolitaire.Core.Tests" />
+  </ItemGroup>
+
+</Project>

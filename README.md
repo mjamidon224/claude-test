@@ -1,5 +1,9 @@
 # NetIPConfig — IPv4 Settings Manager for Windows 11
 
+> This repository also holds **Spider Solitaire**, an ad-free take on the classic Windows
+> game. See [`src/SpiderSolitaire/README.md`](src/SpiderSolitaire/README.md) for how to
+> download, play and build it. Everything below is about NetIPConfig.
+
 A small Windows Forms desktop app for changing **Internet Protocol Version 4 (TCP/IPv4)**
 settings: pick a network adapter, switch it between DHCP and a manual address, and set the
 IP address, subnet mask, default gateway and DNS servers.
