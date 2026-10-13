@@ -13,14 +13,14 @@ internal sealed class MainForm : Form
     private const int BarColumn = 3;
     private const int BiggestFilesShown = 1000;
 
-    private static readonly Color BarColor = Color.FromArgb(0, 120, 215);
-    private static readonly Color BarTrack = Color.FromArgb(225, 225, 225);
-
     private readonly ComboBox _targetBox = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Button _browseButton = new() { Text = "Browse folder...", AutoSize = true };
     private readonly Button _scanButton = new() { Text = "Scan", AutoSize = true };
     private readonly Button _stopButton = new() { Text = "Stop", AutoSize = true, Enabled = false };
     private readonly Button _adminButton = new() { Text = "Restart as administrator", AutoSize = true };
+    private readonly CheckBox _darkToggle = new() { Text = "Dark mode", AutoSize = true, Anchor = AnchorStyles.Left };
+    private readonly RadioButton _foldersView = new() { Text = "Folders", AutoSize = true, Appearance = Appearance.Button, Checked = true };
+    private readonly RadioButton _filesView = new() { Text = $"Biggest files (≥ {SizeText.Format(DiskScanner.BigFileThreshold)})", AutoSize = true, Appearance = Appearance.Button };
     private readonly Button _upButton = new() { Text = "↑ Up", AutoSize = true, Enabled = false };
     private readonly TextBox _pathBox = new() { ReadOnly = true, Dock = DockStyle.Fill };
     private readonly ListView _folderList = CreateList();
@@ -34,6 +34,7 @@ internal sealed class MainForm : Form
     private FolderNode? _current;
     private SortKey _sortKey = SortKey.Size;
     private Font? _italicFont;
+    private Palette _palette = Theme.LoadDarkSetting() ? Palette.Dark : Palette.Light;
 
     public MainForm(string? initialPath)
     {
@@ -46,6 +47,14 @@ internal sealed class MainForm : Form
         BuildLayout();
         WireEvents();
         LoadDrives();
+
+        _darkToggle.Checked = _palette.IsDark;
+        Load += (_, _) =>
+        {
+            // The hidden list has no window yet, and the native dark styles need one.
+            _ = _fileList.Handle;
+            ApplyTheme();
+        };
 
         if (initialPath is not null)
         {
@@ -86,7 +95,7 @@ internal sealed class MainForm : Form
 
         var toolbar = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
         toolbar.Controls.Add(new Label { Text = "Scan:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) });
-        toolbar.Controls.AddRange([_targetBox, _browseButton, _scanButton, _stopButton, _adminButton]);
+        toolbar.Controls.AddRange([_targetBox, _browseButton, _scanButton, _stopButton, _adminButton, _darkToggle]);
 
         var pathBar = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 2 };
         pathBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -106,14 +115,16 @@ internal sealed class MainForm : Form
         _fileList.Columns.Add("File", LogicalToDeviceUnits(300));
         _fileList.Columns.Add("Size", LogicalToDeviceUnits(90), HorizontalAlignment.Right);
         _fileList.Columns.Add("Folder", LogicalToDeviceUnits(520));
+        _fileList.OwnerDraw = true;
+        _fileList.Visible = false;
 
-        var tabs = new TabControl { Dock = DockStyle.Fill };
-        var foldersTab = new TabPage("Folders");
-        foldersTab.Controls.Add(_folderList);
-        var filesTab = new TabPage($"Biggest files (≥ {SizeText.Format(DiskScanner.BigFileThreshold)})");
-        filesTab.Controls.Add(_fileList);
-        tabs.TabPages.Add(foldersTab);
-        tabs.TabPages.Add(filesTab);
+        // Toggle buttons rather than a TabControl, whose tabs can't be darkened.
+        var viewBar = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = false };
+        viewBar.Controls.AddRange([_foldersView, _filesView]);
+
+        var lists = new Panel { Dock = DockStyle.Fill };
+        lists.Controls.Add(_folderList);
+        lists.Controls.Add(_fileList);
 
         var statusBar = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 2 };
         statusBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -122,15 +133,17 @@ internal sealed class MainForm : Form
         statusBar.Controls.Add(_progress, 1, 0);
         _statusLabel.Text = "Pick a drive and hit Scan.";
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new Padding(6) };
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5, Padding = new Padding(6) };
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.Controls.Add(toolbar, 0, 0);
         root.Controls.Add(pathBar, 0, 1);
-        root.Controls.Add(tabs, 0, 2);
-        root.Controls.Add(statusBar, 0, 3);
+        root.Controls.Add(viewBar, 0, 2);
+        root.Controls.Add(lists, 0, 3);
+        root.Controls.Add(statusBar, 0, 4);
         Controls.Add(root);
 
         AcceptButton = _scanButton;
@@ -144,8 +157,19 @@ internal sealed class MainForm : Form
         _adminButton.Click += (_, _) => RestartElevated();
         _upButton.Click += (_, _) => GoUp();
         _progressTimer.Tick += (_, _) => ShowProgress();
+        _foldersView.CheckedChanged += (_, _) =>
+        {
+            _folderList.Visible = _foldersView.Checked;
+            _fileList.Visible = !_foldersView.Checked;
+        };
+        _darkToggle.CheckedChanged += (_, _) =>
+        {
+            _palette = _darkToggle.Checked ? Palette.Dark : Palette.Light;
+            Theme.SaveDarkSetting(_palette.IsDark);
+            ApplyTheme();
+        };
 
-        _folderList.DrawColumnHeader += (_, e) => e.DrawDefault = true;
+        _folderList.DrawColumnHeader += DrawHeader;
         _folderList.DrawItem += (_, _) => { };
         _folderList.DrawSubItem += DrawFolderCell;
         // Owner-drawn full-row-select lists only repaint the hovered cell otherwise.
@@ -161,6 +185,9 @@ internal sealed class MainForm : Form
         _folderList.ItemActivate += (_, _) => OpenSelectedFolder();
         _folderList.ContextMenuStrip = BuildMenu(_folderList, SelectedFolderPath, selectInExplorer: false);
 
+        _fileList.DrawColumnHeader += DrawHeader;
+        _fileList.DrawItem += (_, e) => e.DrawDefault = true;
+        _fileList.DrawSubItem += (_, e) => e.DrawDefault = true;
         _fileList.ItemActivate += (_, _) => ShowInExplorer(SelectedFilePath(), select: true);
         _fileList.ContextMenuStrip = BuildMenu(_fileList, SelectedFilePath, selectInExplorer: true);
 
@@ -412,6 +439,34 @@ internal sealed class MainForm : Form
         }
     }
 
+    private void ApplyTheme()
+    {
+        Theme.Apply(this, _palette, [_folderList.ContextMenuStrip!, _fileList.ContextMenuStrip!]);
+        _folderList.Invalidate();
+        _fileList.Invalidate();
+    }
+
+    /// <summary>List headers are drawn by hand because the OS ignores their colours.</summary>
+    private void DrawHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
+    {
+        using (var back = new SolidBrush(_palette.Header))
+        {
+            e.Graphics.FillRectangle(back, e.Bounds);
+        }
+
+        using (var line = new Pen(_palette.Border))
+        {
+            e.Graphics.DrawLine(line, e.Bounds.Right - 1, e.Bounds.Top + 3, e.Bounds.Right - 1, e.Bounds.Bottom - 4);
+            e.Graphics.DrawLine(line, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+        }
+
+        TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix;
+        flags |= e.Header?.TextAlign == HorizontalAlignment.Right ? TextFormatFlags.Right : TextFormatFlags.Left;
+
+        Rectangle textBounds = Rectangle.Inflate(e.Bounds, -LogicalToDeviceUnits(6), 0);
+        TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? "", e.Font ?? Font, textBounds, _palette.Text, flags);
+    }
+
     private void DrawFolderCell(object? sender, DrawListViewSubItemEventArgs e)
     {
         if (e.Item is null || e.SubItem is null)
@@ -420,8 +475,8 @@ internal sealed class MainForm : Form
         }
 
         bool selected = e.Item.Selected;
-        Color back = selected ? SystemColors.Highlight : _folderList.BackColor;
-        Color fore = selected ? SystemColors.HighlightText : _folderList.ForeColor;
+        Color back = selected ? _palette.Selection : _palette.Field;
+        Color fore = selected ? _palette.SelectionText : _palette.Text;
 
         using (var brush = new SolidBrush(back))
         {
@@ -462,7 +517,7 @@ internal sealed class MainForm : Form
             return;
         }
 
-        using (var trackBrush = new SolidBrush(selected ? ControlPaint.Light(SystemColors.Highlight) : BarTrack))
+        using (var trackBrush = new SolidBrush(selected ? ControlPaint.Dark(_palette.Selection) : _palette.BarTrack))
         {
             graphics.FillRectangle(trackBrush, track);
         }
@@ -470,7 +525,7 @@ internal sealed class MainForm : Form
         int filled = (int)Math.Round(track.Width * Math.Clamp(share, 0, 1));
         if (filled > 0)
         {
-            using var barBrush = new SolidBrush(selected ? SystemColors.HighlightText : BarColor);
+            using var barBrush = new SolidBrush(selected ? _palette.SelectionText : _palette.Bar);
             graphics.FillRectangle(barBrush, new Rectangle(track.X, track.Y, filled, track.Height));
         }
     }

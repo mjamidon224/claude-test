@@ -191,6 +191,8 @@ folders take up the space, biggest first.
 - **Biggest files** tab: every file of 50 MB or more on the scanned drive, largest first.
 - Right-click → *Show in Explorer* / *Copy path*. Nothing is ever deleted by the app.
 - *Stop* ends a scan early and shows what was counted so far.
+- **Dark mode** by default, title bar, scroll bars and list headers included. Untick *Dark
+  mode* for the light theme; the choice is kept in `%APPDATA%\DiskHog\theme.txt`.
 - *Restart as administrator* (shown when not elevated) re-runs the scan with access to
   folders a normal user can't read; the status bar says how many were skipped.
 
