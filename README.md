@@ -174,3 +174,34 @@ No NuGet packages are referenced; everything comes from the Windows Desktop fram
 IPv6, multiple IP addresses or gateways per adapter, gateway metrics, WINS, DHCP
 release/renew, scanning a subnet other than the adapter's own, and MAC vendor names. The `netsh` commands for these fit the same
 `NetworkConfigurator.BuildCommands` pattern if you want to add them.
+
+---
+
+# DiskHog — what's eating my disk
+
+A second app in this repo (`src/DiskHog`): pick a drive or folder, scan it, and see which
+folders take up the space, biggest first.
+
+- **Fast scan**: lists directories with `FindFirstFileEx` (basic info, large fetch), so file
+  sizes come straight from the directory listing with no per-file call, and walks the top
+  levels of the tree in parallel. A full system drive typically takes seconds, not minutes.
+- **Drill down**: folders sorted by size with a bar showing their share of the parent, plus
+  file and folder counts. Double-click (or Enter) to go into a folder, Backspace or *↑ Up* to
+  come back out. Click a column header to sort by name, files or folders instead.
+- **Biggest files** tab: every file of 50 MB or more on the scanned drive, largest first.
+- Right-click → *Show in Explorer* / *Copy path*. Nothing is ever deleted by the app.
+- *Stop* ends a scan early and shows what was counted so far.
+- *Restart as administrator* (shown when not elevated) re-runs the scan with access to
+  folders a normal user can't read; the status bar says how many were skipped.
+
+What gets counted:
+
+- Logical file size (what Explorer shows as *Size*, not *Size on disk*).
+- Junctions and symbolic links are not followed, so nothing is counted twice through them
+  (e.g. `C:\Documents and Settings`). Hard links are counted once per link, which makes
+  `C:\Windows\WinSxS` look bigger than the space it really uses.
+- OneDrive online-only files are left out, since they take no local space.
+
+Run it with `dotnet run --project src/DiskHog`, build it with `.\publish.ps1 -App DiskHog`,
+or download `DiskHog-win-x64` from the Actions build artifacts. Passing a path on the command
+line (`DiskHog.exe D:\`) scans it straight away. It runs without administrator rights.

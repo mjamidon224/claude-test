@@ -20,16 +20,31 @@ jobs:
       matrix:
         include:
           # Self-contained: runs on a machine with no .NET installed, ~60 MB compressed.
-          - runtime: win-x64
+          - app: NetIPConfig
+            runtime: win-x64
             selfContained: true
             artifact: NetIPConfig-win-x64
-          - runtime: win-arm64
+          - app: NetIPConfig
+            runtime: win-arm64
             selfContained: true
             artifact: NetIPConfig-win-arm64
           # Framework-dependent: a couple of MB, needs the .NET 8 Desktop Runtime.
-          - runtime: win-x64
+          - app: NetIPConfig
+            runtime: win-x64
             selfContained: false
             artifact: NetIPConfig-win-x64-requires-dotnet8
+          - app: DiskHog
+            runtime: win-x64
+            selfContained: true
+            artifact: DiskHog-win-x64
+          - app: DiskHog
+            runtime: win-arm64
+            selfContained: true
+            artifact: DiskHog-win-arm64
+          - app: DiskHog
+            runtime: win-x64
+            selfContained: false
+            artifact: DiskHog-win-x64-requires-dotnet8
 
     steps:
       - name: Check out
@@ -45,7 +60,7 @@ jobs:
 
       - name: Publish single-file executable
         run: >
-          dotnet publish src/NetIPConfig/NetIPConfig.csproj
+          dotnet publish src/${{ matrix.app }}/${{ matrix.app }}.csproj
           --configuration Release
           --runtime ${{ matrix.runtime }}
           --self-contained ${{ matrix.selfContained }}
@@ -66,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: publish/${{ matrix.artifact }}/NetIPConfig.exe
+          path: publish/${{ matrix.artifact }}/${{ matrix.app }}.exe
           if-no-files-found: error
 
   release:
@@ -88,7 +103,7 @@ jobs:
         run: |
           mkdir -p release
           for directory in artifacts/*/; do
-            cp "${directory}NetIPConfig.exe" "release/$(basename "$directory").exe"
+            cp "${directory}"*.exe "release/$(basename "$directory").exe"
           done
           ls -l release
 
