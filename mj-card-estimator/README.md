@@ -4,6 +4,16 @@ A single-page tool for bidding on classic Michael Jordan cards. Paste a listing 
 
 Open `index.html` in a browser. Everything runs locally in the page with no server and no build step.
 
+## Windows app
+
+`JordanCardAppraiser.exe` is the same page in its own window. It's a single 2.7 MB file with nothing to install. It uses the Microsoft Edge WebView2 runtime that comes with Windows 10 and 11; on a PC without WebView2 it opens the page in your browser instead. Saved prices and settings live in `%LOCALAPPDATA%\JordanCardAppraiser`.
+
+The exe isn't code-signed, so the first launch shows "Windows protected your PC". Click **More info**, then **Run anyway**.
+
+To build it, install Go 1.24 or later and run `./build-exe.sh`. Set `GOARCH=arm64` for Windows on Arm. The output goes to `dist/`. The build embeds `index.html`, so rebuild after you change the page.
+
+The Claude check only works when the page is opened on claude.ai. In the exe, pick the card yourself.
+
 ## Using it
 
 | Key | Action |
