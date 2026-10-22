@@ -255,7 +255,7 @@ details.panel[open]>summary{margin-bottom:10px}
       <input type="file" id="file" accept="image/*" hidden>
     </div>
     <p class="help o3" id="helpLines"><span class="swatch" style="background:var(--guide-outer)"></span>Pink lines sit on the card edge. <span class="swatch" style="background:var(--guide-inner)"></span>Blue lines sit where the border meets the frame. Drag any line to correct it; centering updates as you drag. Photo taken at an angle? Switch to <b>4 corners</b>.</p>
-    <p class="help o3" id="helpCorners" hidden><span class="swatch" style="background:var(--guide-outer)"></span>Drag the pink dots onto the card's four corners. The card is flattened so centering is measured straight on, even when the photo is at an angle. <span class="swatch" style="background:var(--guide-inner)"></span>Blue dots mark the inner border; drag them if the scan missed it.</p>
+    <p class="help o3" id="helpCorners" hidden><span class="swatch" style="background:var(--guide-outer)"></span>Drag the pink dots onto the card's four corners; they can go past the photo's dashed edge if a corner is cut off. The card is flattened so centering is measured straight on, even when the photo is at an angle. <span class="swatch" style="background:var(--guide-inner)"></span>Blue dots mark the inner border; drag them if the scan missed it.</p>
     <div class="corners o8" id="corners">
       <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Top left</span><b>–</b></figcaption></figure>
       <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Top right</span><b>–</b></figcaption></figure>
@@ -588,7 +588,7 @@ function boxBlur(src, W, H){
   return out;
 }
 
-function growBackground(R, G, B, W, H, rect){
+function growBackground(R, G, B, W, H, rect, edges){
   // Flood-fill from the rect's border. A pixel joins the background when it is close to its
   // neighbor, to the running background color and to its starting color, and isn't sitting on
   // a strong edge (which stops the fill creeping along the soft, tilted edge of a card).
@@ -597,17 +597,43 @@ function growBackground(R, G, B, W, H, rect){
   const bg = new Uint8Array(N), q = new Int32Array(N), seed = new Int32Array(N);
   const er = new Float32Array(N), eg = new Float32Array(N), eb = new Float32Array(N);
   if (rx0 > 0 || ry0 > 0 || rx1 < W-1 || ry1 < H-1){ bg.fill(1); for (let y = ry0; y <= ry1; y++) bg.fill(0, y*W + rx0, y*W + rx1 + 1); }
-  const ring = [];
-  for (let x = rx0; x < rx1; x += 2){ ring.push(Math.abs(G[ry0*W+x] - G[ry0*W+x+1]), Math.abs(G[ry1*W+x] - G[ry1*W+x+1])); }
-  for (let y = ry0; y < ry1; y += 2){ ring.push(Math.abs(G[y*W+rx0] - G[(y+1)*W+rx0]), Math.abs(G[y*W+rx1] - G[(y+1)*W+rx1])); }
-  ring.sort((p, q) => p - q);
-  const tex = ring.length ? ring[Math.floor(ring.length*0.6)] : 0;
+  const steps = [];
+  for (let x = rx0; x < rx1; x += 2){ steps.push(Math.abs(G[ry0*W+x] - G[ry0*W+x+1]), Math.abs(G[ry1*W+x] - G[ry1*W+x+1])); }
+  for (let y = ry0; y < ry1; y += 2){ steps.push(Math.abs(G[y*W+rx0] - G[(y+1)*W+rx0]), Math.abs(G[y*W+rx1] - G[(y+1)*W+rx1])); }
+  steps.sort((p, q) => p - q);
+  const tex = steps.length ? steps[Math.floor(steps.length*0.6)] : 0;
   const T1 = clamp(10 + 2*tex, 14, 28), T2 = clamp(9 + 4*tex, 13, 40), Tg = clamp(12 + 3*tex, 16, 60), TS = 80, K = 0.05;
   let qh = 0, qt = 0;
   const add = (i) => { if (!bg[i]) { bg[i] = 1; seed[i] = i; er[i] = R[i]; eg[i] = G[i]; eb[i] = B[i]; q[qt++] = i; } };
-  for (let x = rx0; x <= rx1; x++){ add(ry0*W + x); add(ry1*W + x); }
-  for (let y = ry0; y <= ry1; y++){ add(y*W + rx0); add(y*W + rx1); }
   const dmax = (a, b) => { let d = Math.abs(R[a]-R[b]), t = Math.abs(G[a]-G[b]); if (t > d) d = t; t = Math.abs(B[a]-B[b]); return t > d ? t : d; };
+  // Along the photo's real edges (edges = {L,R,T,B}), seed only from long, unbroken stretches.
+  // A card corner that pokes into the photo's edge shows up as a short stretch of another color,
+  // and seeding there would flood the card's own border. Sides that are just a crop line seed
+  // everywhere. If the background is too busy for long stretches, seed the whole border.
+  const ring = [], onEdge = [];
+  const e = edges || {};
+  for (let x = rx0; x <= rx1; x++){ ring.push(ry0*W + x); onEdge.push(!!e.T); }
+  for (let y = ry0 + 1; y <= ry1; y++){ ring.push(y*W + rx1); onEdge.push(!!e.R); }
+  for (let x = rx1 - 1; x >= rx0; x--){ ring.push(ry1*W + x); onEdge.push(!!e.B); }
+  for (let y = ry1 - 1; y > ry0; y--){ ring.push(y*W + rx0); onEdge.push(!!e.L); }
+  // A stretch ends at a sudden step, or when the color has drifted away from the stretch's own
+  // running color (a card edge crossing the border at a shallow angle fades in over many pixels).
+  const runs = [];
+  let start = 0, mr0 = R[ring[0]], mg0 = G[ring[0]], mb0 = B[ring[0]];
+  for (let k = 0; k < ring.length; k++){
+    const nx = ring[k+1];
+    const brk = k === ring.length - 1 || dmax(ring[k], nx) > T1 ||
+      Math.max(Math.abs(R[nx]-mr0), Math.abs(G[nx]-mg0), Math.abs(B[nx]-mb0)) > T2;
+    if (brk){ runs.push([start, k]); start = k + 1; if (nx != null){ mr0 = R[nx]; mg0 = G[nx]; mb0 = B[nx]; } }
+    else { mr0 += (R[nx]-mr0)*K; mg0 += (G[nx]-mg0)*K; mb0 += (B[nx]-mb0)*K; }
+  }
+  if (runs.length > 1 && dmax(ring[ring.length - 1], ring[0]) <= T1){ const last = runs.pop(); runs[0] = [last[0] - ring.length, runs[0][1]]; }
+  const minRun = Math.max(12, 0.04*ring.length), inLong = new Uint8Array(ring.length);
+  for (const [a, b] of runs) if (b - a + 1 >= minRun) for (let k = a; k <= b; k++) inLong[(k + ring.length) % ring.length] = 1;
+  let edgeN = 0, edgeLong = 0;
+  for (let k = 0; k < ring.length; k++) if (onEdge[k]){ edgeN++; edgeLong += inLong[k]; }
+  const filter = edgeN > 0 && edgeLong >= 0.5*edgeN;
+  for (let k = 0; k < ring.length; k++) if (!filter || !onEdge[k] || inLong[k]) add(ring[k]);
   while (qh < qt){
     const i = q[qh++], x = i % W, y = (i - x) / W, s = seed[i];
     const mr = er[i], mg = eg[i], mb = eb[i];
@@ -687,7 +713,7 @@ function detectCard(A, maxDepth){
   // If the best blob isn't card-shaped (a photo panel, a slab), look again inside it.
   let rect = [0, 0, A.W-1, A.H-1], chosen = null;
   for (let depth = 0; depth <= maxDepth; depth++){
-    const c = bestComponent(growBackground(A.Rb, A.Gb, A.Bb, A.W, A.H, rect), A.W, A.H, rect);
+    const c = bestComponent(growBackground(A.Rb, A.Gb, A.Bb, A.W, A.H, rect, depth === 0 ? A.edges : null), A.W, A.H, rect);
     if (!c) break;
     c.depth = depth;
     if (!chosen || (chosen.shape < 0.55 && c.shape > chosen.shape + 0.15)) chosen = c; else break;
@@ -925,11 +951,18 @@ function analyzeImage(src, srcW, srcH, opts = {}){
   if (!tight && !box){
     const s1 = Math.min(1, 560 / Math.max(srcW, srcH));
     const A1 = readPixels(dctx, det, src, 0, 0, srcW, srcH, Math.max(16, Math.round(srcW*s1)), Math.max(16, Math.round(srcH*s1)));
+    A1.edges = {L:true, R:true, T:true, B:true};
     const c = detectCard(A1, 2);
     if (c){
       const [x0, y0, x1, y1] = c.bb, fw = (x1-x0+1)/A1.W, fh = (y1-y0+1)/A1.H;
       const imgAsp = Math.min(A1.W, A1.H) / Math.max(A1.W, A1.H);
-      if (forceTight == null && c.depth === 0 && ((fw > 0.97 && fh > 0.97) || (Math.abs(imgAsp - 0.714) < 0.035 && fw > 0.75 && fh > 0.75))){ tight = true; autoTight = true; }
+      // A card-shaped blob filling a card-shaped photo is usually the frame inside a tightly
+      // cropped card. Not if it runs off the photo's edge or sits rotated: then it is the card.
+      const touches = x0 <= 1 || y0 <= 1 || x1 >= A1.W - 2 || y1 >= A1.H - 2;
+      const f1 = fitEdges(c.mask, A1.W, c.bb);
+      const rotated = !!f1 && Math.max(...["L","R","T","B"].map(k => Math.abs(Math.atan(f1.lines[k].a)))) * 180/Math.PI > 0.6;
+      const frameInCrop = !touches && !rotated && Math.abs(imgAsp - 0.714) < 0.035 && fw > 0.75 && fh > 0.75;
+      if (forceTight == null && c.depth === 0 && ((fw > 0.97 && fh > 0.97 && !rotated) || frameInCrop)){ tight = true; autoTight = true; }
       else {
         const bx = x0/s1, by = y0/s1, bw = (x1-x0+1)/s1, bh = (y1-y0+1)/s1, m = Math.max(8, 0.08*Math.max(bw, bh));
         const cx0 = Math.max(0, Math.floor(bx - m)), cy0 = Math.max(0, Math.floor(by - m));
@@ -942,6 +975,7 @@ function analyzeImage(src, srcW, srcH, opts = {}){
   const W = Math.max(16, Math.round(crop[2]*sc)), H = Math.max(16, Math.round(crop[3]*sc));
   const A = readPixels(wctx, work, src, crop[0], crop[1], crop[2], crop[3], W, H);
   A.sc = sc; A.offX = crop[0]; A.offY = crop[1];
+  A.edges = {L: crop[0] <= 0, T: crop[1] <= 0, R: crop[0] + crop[2] >= srcW, B: crop[1] + crop[3] >= srcH};
   let found = null, fit = null;
   if (!tight){
     found = detectCard(A, 1);
@@ -1055,7 +1089,7 @@ const saved = store.get("jca.settings", {});
 const S = {
   src:null, srcW:0, srcH:0, file:null, isSample:true, token:0,
   an:null, anOrig:null, guides:null, guidesEdited:false, tightForce:null,
-  guideMode: saved.guideMode === "corners" ? "corners" : "lines", quad:null, flat:null,
+  guideMode: saved.guideMode === "corners" ? "corners" : "lines", quad:null, flat:null, autoFlat:false,
   cardId:"86fleer57", userPickedCard:false,
   mode:"raw", slabGrade:9, qual:"",
   manual:{}, ai:null,
@@ -1275,6 +1309,7 @@ function renderMeasurements(gm){
     flags.push(["warn", `Possible chip or dent on the ${where} edge.`]);
   }
   if (!S.flat && A.skew > 0.8) flags.push(["warn", "The card's edges aren't parallel, so the photo was taken at an angle. Switch to 4 corners (press C) to flatten it before trusting the centering."]);
+  if (S.flat && S.autoFlat){ const o = S.anOrig; flags.push(["", `The card sat ${o.skew > 0.8 ? "at an angle" : o.tilt.toFixed(1) + "° crooked"} in the photo, so it was straightened before measuring. Undo flatten shows the original.`]); }
   if (A.tone.white) flags.push(["", "White border: edge whitening doesn't show on the front. Check the back."]);
   if (A.surface.glareFrac > 0.05) flags.push(["warn", "Glare covers part of the photo, so surface flaws may be hidden."]);
   if (A.Q < 0.35) flags.push(["warn", "Low-detail image. The grade range is wide; ask the seller for a scan or zoom in on the listing first."]);
@@ -1399,7 +1434,8 @@ function flatten(q){
 // Card corners found by the scan of the original screenshot, as a starting quad.
 function autoQuad(){
   const A = S.anOrig;
-  const at = (p, dx, dy) => ({x: clamp(A.offX + (p.x + dx)/A.sc, 0, S.srcW), y: clamp(A.offY + (p.y + dy)/A.sc, 0, S.srcH)});
+  const mx = S.srcW*0.05, my = S.srcH*0.05;
+  const at = (p, dx, dy) => ({x: clamp(A.offX + (p.x + dx)/A.sc, -mx, S.srcW + mx), y: clamp(A.offY + (p.y + dy)/A.sc, -my, S.srcH + my)});
   return [at(A.C.tl, 0, 0), at(A.C.tr, 1, 0), at(A.C.br, 1, 1), at(A.C.bl, 0, 1)];
 }
 
@@ -1472,12 +1508,14 @@ function drawLinesView(){
   }
   centeringBadge(g, px, (Gd.oL + Gd.oR)/2, Math.max(2*px, Gd.oT - ext - 24*px));
 }
+// The view runs past the photo's edges by a margin, so dots sitting on the edge are fully
+// visible and can be dragged onto a card corner that is cut off by the photo.
 function quadViewport(){
   const xs = S.quad.map(p => p.x), ys = S.quad.map(p => p.y);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const pad = 0.14 * Math.max(x1 - x0, y1 - y0, 40);
-  const vx = clamp(x0 - pad, 0, S.srcW - 1), vy = clamp(y0 - pad, 0, S.srcH - 1);
-  return {vx, vy, vw: Math.max(1, clamp(x1 + pad, 0, S.srcW) - vx), vh: Math.max(1, clamp(y1 + pad, 0, S.srcH) - vy)};
+  const pad = 0.12 * Math.max(x1 - x0, y1 - y0, 40);
+  const vx = Math.max(x0 - pad, -pad), vy = Math.max(y0 - pad, -pad);
+  return {vx, vy, vw: Math.min(x1 + pad, S.srcW + pad) - vx, vh: Math.min(y1 + pad, S.srcH + pad) - vy};
 }
 // Inner border corners (blue) in screenshot pixels, from the guides on the flattened card.
 function innerQuad(){
@@ -1489,7 +1527,10 @@ function drawQuadView(){
   if (!cview) cview = quadViewport();
   const V = cview, {g, k, dpr} = sizeView(V.vw, V.vh), px = 1/k;
   g.setTransform(dpr*k, 0, 0, dpr*k, -dpr*k*V.vx, -dpr*k*V.vy);
-  g.drawImage(S.src, V.vx, V.vy, V.vw, V.vh, V.vx, V.vy, V.vw, V.vh);
+  const ix0 = Math.max(0, V.vx), iy0 = Math.max(0, V.vy), ix1 = Math.min(S.srcW, V.vx + V.vw), iy1 = Math.min(S.srcH, V.vy + V.vh);
+  if (ix1 > ix0 && iy1 > iy0) g.drawImage(S.src, ix0, iy0, ix1 - ix0, iy1 - iy0, ix0, iy0, ix1 - ix0, iy1 - iy0);
+  g.strokeStyle = cssVar("--muted") || "#888"; g.lineWidth = px; g.setLineDash([4*px, 4*px]);
+  g.strokeRect(0, 0, S.srcW, S.srcH); g.setLineDash([]);
   const cO = cssVar("--guide-outer") || "#E0115F", cI = cssVar("--guide-inner") || "#0A7CFF";
   const q = S.quad, inner = cdrag?.outer ? null : innerQuad();
   const path = (pts) => { g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < 4; i++) g.lineTo(pts[i].x, pts[i].y); g.closePath(); };
@@ -1500,8 +1541,8 @@ function drawQuadView(){
     g.fillStyle = col; g.beginPath(); g.arc(p.x, p.y, (active ? r*1.3 : r)*px, 0, Math.PI*2); g.fill();
     g.strokeStyle = "#fff"; g.lineWidth = 2*px; g.stroke();
   };
-  q.forEach((p, i) => dot(p, cO, 7, cdrag?.outer && cdrag.i === i));
   inner?.forEach((p, i) => dot(p, cI, 5.5, cdrag && !cdrag.outer && cdrag.i === i));
+  q.forEach((p, i) => dot(p, cO, 7, cdrag?.outer && cdrag.i === i));
   if (inner) centeringBadge(g, px, (q[0].x + q[1].x)/2, Math.max(V.vy + 2*px, Math.min(q[0].y, q[1].y) - 30*px));
   if (cdrag) drawLoupe(g, cdrag.outer ? q[cdrag.i] : inner[cdrag.i], dpr, k, V, cdrag.outer ? cO : cI);
 }
@@ -1548,11 +1589,14 @@ function nearestGuide(p){
   for (const key of ["oT","iT","iB","oB"]){ if (p.x < Gd.oL - pad || p.x > Gd.oR + pad) continue; const d = Math.abs(p.y - Gd[key]); if (d < bd){ bd = d; best = key; } }
   return bd <= tol ? best : null;
 }
+// A press on the pink dot itself (its drawn radius) takes the pink dot even when a blue dot
+// overlaps it; anywhere else the nearest dot wins.
 function nearestDot(p){
-  const tol = 22/viewK; let best = null, bd = Infinity;
-  S.quad.forEach((q, i) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd){ bd = d; best = {outer:true, i, dx:q.x - p.x, dy:q.y - p.y}; } });
-  innerQuad().forEach((q, i) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd){ bd = d; best = {outer:false, i, dx:q.x - p.x, dy:q.y - p.y}; } });
-  return bd <= tol ? best : null;
+  const tol = 22/viewK, pinkGrab = 7/viewK;
+  const near = (pts, outer) => pts.reduce((b, q, i) => { const d = Math.hypot(q.x - p.x, q.y - p.y); return d < b.d ? {d, outer, i, dx:q.x - p.x, dy:q.y - p.y} : b; }, {d:Infinity});
+  const pink = near(S.quad, true), blue = near(innerQuad(), false);
+  const best = pink.d <= pinkGrab || pink.d <= blue.d ? pink : blue;
+  return best.d <= tol ? best : null;
 }
 const quadMode = () => S.guideMode === "corners" && S.flat && S.quad && cview;
 els.view.addEventListener("pointerdown", (e) => {
@@ -1571,7 +1615,7 @@ els.view.addEventListener("pointermove", (e) => {
     const p = toShot(e);
     if (!cdrag){ els.view.style.cursor = nearestDot(p) ? "grab" : "default"; return; }
     const x = p.x + cdrag.dx, y = p.y + cdrag.dy;
-    if (cdrag.outer){ S.quad[cdrag.i] = {x: clamp(x, 0, S.srcW), y: clamp(y, 0, S.srcH)}; scheduleDraw(); return; }
+    if (cdrag.outer){ S.quad[cdrag.i] = {x: clamp(x, cview.vx, cview.vx + cview.vw), y: clamp(y, cview.vy, cview.vy + cview.vh)}; scheduleDraw(); return; }
     const F = S.flat, A = S.an, Gd = S.guides, t = applyH(F.Hinv, x, y);
     const wx = (t.x + F.m - A.offX)*A.sc, wy = (t.y + F.m - A.offY)*A.sc;
     const setX = (key) => { Gd[key] = key === "iL" ? clamp(wx, Gd.oL + 1, Gd.iR - 4) : clamp(wx, Gd.iL + 4, Gd.oR - 1); };
@@ -1602,18 +1646,27 @@ new MutationObserver(scheduleDraw).observe(document.documentElement, {attributes
 /* ===================== Loading images ===================== */
 function useAnalysis(an){
   S.an = an; S.guides = {...an.guides0}; S.guidesEdited = false;
-  els.timing.textContent = `Scanned in ${Math.round(an.ms)} ms` + (S.flat ? " · flattened from 4 corners" : "");
+  els.timing.textContent = `Scanned in ${Math.round(an.ms)} ms` + (!S.flat ? "" : S.autoFlat ? " · straightened automatically" : " · flattened from 4 corners");
   els.unflat.hidden = !S.flat;
   drawCorners(); scheduleDraw(); update();
 }
 function runAnalysis(){
   S.anOrig = analyzeImage(S.src, S.srcW, S.srcH, {forceTight: S.tightForce});
   els.tightChk.checked = S.anOrig.tight;
-  S.flat = null; S.quad = null; cview = null;
-  if (S.guideMode === "corners"){ S.quad = autoQuad(); applyQuad(); if (S.flat) return; }
+  S.flat = null; S.quad = null; S.autoFlat = false; cview = null;
+  // A card rotated in the frame or shot at an angle gets flattened right away, so the guides
+  // land square on its edges. Undo flatten puts the original back.
+  const A = S.anOrig, crooked = !A.tight && (A.tilt > 1 || A.skew > 0.8);
+  if (S.guideMode === "corners" || crooked){
+    S.quad = autoQuad(); S.autoFlat = S.guideMode !== "corners";
+    applyQuad();
+    if (S.flat) return;
+    S.autoFlat = false;
+  }
   useAnalysis(S.anOrig);
 }
 function applyQuad(){
+  if (S.guideMode === "corners") S.autoFlat = false;
   const t0 = performance.now(), F = flatten(S.quad);
   if (!F){ els.timing.textContent = "Those corners don't form a card shape. Drag the pink dots onto the card's four corners."; scheduleDraw(); return; }
   S.flat = F;
@@ -1629,7 +1682,7 @@ function setGuideMode(m){
   else scheduleDraw();
 }
 function undoFlatten(){
-  S.flat = null; S.quad = null; cview = null;
+  S.flat = null; S.quad = null; S.autoFlat = false; cview = null;
   setGuideMode("lines");
   useAnalysis(S.anOrig);
 }

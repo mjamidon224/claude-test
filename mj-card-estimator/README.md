@@ -31,12 +31,14 @@ The Claude check only works when the page is opened on claude.ai. In the exe, pi
 
 Switch to **Already graded** for slabbed cards. A qualifier (OC, ST, PD and so on) values the card about two grades lower.
 
-## 4 corners: photos taken at an angle
+## Crooked cards and photos taken at an angle
 
-When the card isn't square to the camera, its edges aren't parallel in the photo, and border widths measured straight across come out wrong. The scan flags this. Switch the guides to **4 corners** and you get draggable dots instead of lines:
+When a card sits rotated in the photo, or the photo was taken at an angle, border widths measured straight across come out wrong. On paste, the scan finds the card's four corners. If the card is more than 1° crooked or its edges aren't parallel, it flattens the card before measuring, so the guides land square on its edges with nothing to drag. This still works when the card nearly fills the photo or a corner is cut off by the photo's edge. **Undo flatten** shows the original photo.
 
-- **Pink dots** go on the card's four corners. When you let go, the app solves the perspective transform from those corners and warps the card flat to a true 2.5 x 3.5 rectangle. Corners, edges and centering are then measured on the flattened card.
-- **Blue dots** mark the inner border, drawn back onto the photo in perspective. Drag one if the scan missed the border. Centering updates as you drag.
+To place the corners yourself, switch the guides to **4 corners** and you get draggable dots instead of lines:
+
+- **Pink dots** go on the card's four corners, in any shape. When you let go, the app solves the perspective transform from those corners and warps the card flat to a true 2.5 x 3.5 rectangle. Corners, edges and centering are then measured on the flattened card. The view extends past the photo (its edge is dashed), so a dot can reach a corner the photo cut off.
+- **Blue dots** mark the inner border. They stay parallel to the card's edges, following the same perspective. Drag one if the scan missed the border. Centering updates as you drag. Where a blue dot sits under a pink one, pressing on the pink dot moves the pink one.
 
 A magnifier shows the area under the dot while you drag. **Undo flatten** goes back to the original photo. Switching back to Lines after flattening shows the flattened card with the usual straight guides.
 
