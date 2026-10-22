@@ -202,7 +202,11 @@ details.panel[open]>summary{margin-bottom:10px}
 .ptable th{text-align:left;font-weight:600;padding:4px 8px 4px 0;font-size:13px;white-space:nowrap}
 .ptable td{padding:3px 0}
 .ptable input{width:100%;font:500 14px var(--mono);border:1px solid var(--line);border-radius:5px;padding:5px 7px;background:var(--panel);color:var(--ink)}
-.prow{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:13.5px}
+.prow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-top:10px;font-size:13.5px}
+.scp{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.scp textarea{display:block;width:100%;margin-top:8px;font:13px/1.4 var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;resize:vertical}
+.scp textarea:focus{border-color:var(--blue);outline:none}
+.chip.est{padding:3px 6px;font-size:10px;vertical-align:1px}
 .prow a{color:var(--blue)}
 .std{overflow-x:auto}
 .std table{border-collapse:collapse;width:100%;min-width:560px;font-size:13px}
@@ -225,6 +229,7 @@ details.panel[open]>summary{margin-bottom:10px}
     <span><kbd>Ctrl</kbd><kbd>V</kbd> paste screenshot</span>
     <span><kbd>/</kbd> find card</span>
     <span><kbd>A</kbd> ask Claude</span>
+    <span><kbd>C</kbd> 4 corners</span>
     <span><kbd>U</kbd> upload</span>
   </div>
 </header>
@@ -238,13 +243,19 @@ details.panel[open]>summary{margin-bottom:10px}
       <canvas id="view" aria-label="Screenshot with centering guides"></canvas>
     </div>
     <div class="stage-bar o2">
+      <div class="seg" role="radiogroup" aria-label="Guide style">
+        <label><input type="radio" name="gmode" value="lines" id="gmLines" checked><span>Lines</span></label>
+        <label><input type="radio" name="gmode" value="corners" id="gmCorners"><span>4 corners</span></label>
+      </div>
+      <button type="button" class="btn ghost" id="unflat" hidden>Undo flatten</button>
       <span class="mono small grow" id="timing"></span>
       <label class="chk"><input type="checkbox" id="tightChk"> Image is cropped to the card edge</label>
       <button type="button" class="btn ghost" id="resetGuides">Reset guides</button>
       <button type="button" class="btn ghost" id="uploadBtn">Upload</button>
       <input type="file" id="file" accept="image/*" hidden>
     </div>
-    <p class="help o3"><span class="swatch" style="background:var(--guide-outer)"></span>Pink lines sit on the card edge. <span class="swatch" style="background:var(--guide-inner)"></span>Blue lines sit where the border meets the frame. Drag any line to correct it; centering updates as you drag.</p>
+    <p class="help o3" id="helpLines"><span class="swatch" style="background:var(--guide-outer)"></span>Pink lines sit on the card edge. <span class="swatch" style="background:var(--guide-inner)"></span>Blue lines sit where the border meets the frame. Drag any line to correct it; centering updates as you drag. Photo taken at an angle? Switch to <b>4 corners</b>.</p>
+    <p class="help o3" id="helpCorners" hidden><span class="swatch" style="background:var(--guide-outer)"></span>Drag the pink dots onto the card's four corners. The card is flattened so centering is measured straight on, even when the photo is at an angle. <span class="swatch" style="background:var(--guide-inner)"></span>Blue dots mark the inner border; drag them if the scan missed it.</p>
     <div class="corners o8" id="corners">
       <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Top left</span><b>–</b></figcaption></figure>
       <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Top right</span><b>–</b></figcaption></figure>
@@ -279,7 +290,7 @@ details.panel[open]>summary{margin-bottom:10px}
           <label><input type="radio" name="mode" value="slab" id="modeSlab"><span>Already graded</span></label>
         </div>
         <span class="slabctl" id="slabCtl" hidden>
-          <label for="slabGrade" class="lab">PSA</label>
+          <label for="slabGrade" class="lab">Grade</label>
           <select id="slabGrade"></select>
           <select id="qual" aria-label="Qualifier">
             <option value="">No qualifier</option>
@@ -352,8 +363,15 @@ details.panel[open]>summary{margin-bottom:10px}
       <summary>Price data for this card</summary>
       <p class="note" id="priceSrc" style="margin-top:0"></p>
       <table class="ptable" style="margin-top:8px"><tbody id="pBody"></tbody></table>
+      <div class="scp">
+        <label for="scpPaste" class="lab">Update from SportsCardsPro</label>
+        <p class="note" style="margin-top:4px">Open the card on sportscardspro.com, select the Full Price Guide table, copy it, and paste it here. Nothing is sent anywhere; the prices are saved on this device.</p>
+        <textarea id="scpPaste" rows="3" spellcheck="false" placeholder="Ungraded $4,497.00&#10;Grade 1 $5,721.12&#10;…&#10;PSA 10 $396,500.00"></textarea>
+        <div class="prow" style="margin-top:8px"><button type="button" class="btn ghost" id="scpApply">Use these prices</button><span class="small" id="scpMsg" role="status"></span></div>
+      </div>
       <div class="prow">
         <a id="compsLink" href="https://www.ebay.com/" target="_blank" rel="noopener">Check eBay sold listings</a>
+        <a id="scpLink" href="https://www.sportscardspro.com/" target="_blank" rel="noopener">Open on SportsCardsPro</a>
         <button type="button" class="link" id="resetPrices">Reset to built-in prices</button>
       </div>
     </details>
@@ -369,7 +387,7 @@ details.panel[open]>summary{margin-bottom:10px}
       <p class="note">Centering is the share of the border on each side, larger side first. PSA tightened the PSA 10 front standard to 55/45 in 2025; older guides say 60/40. PSA also gives half grades from 1.5 to 8.5, and adds a qualifier (OC, ST, PD, OF, MK, MC) when one flaw is far worse than the rest. A qualified card usually sells closer to two grades lower.</p>
     </details>
 
-    <p class="fine o12">Estimates only, not a PSA grade. Not affiliated with PSA. Prices are approximate comps as of October 2026 and markets move fast, so check recent sales before a big bid. A front screenshot can't show the back, gloss, light scratches or trimming.</p>
+    <p class="fine o12">Estimates only, not a PSA grade. Not affiliated with PSA or SportsCardsPro. Built-in prices are a SportsCardsPro snapshot from October 2026 and markets move fast, so refresh them before a big bid. A front screenshot can't show the back, gloss, light scratches or trimming.</p>
   </section>
 </main>
 </div>
@@ -377,129 +395,6 @@ details.panel[open]>summary{margin-bottom:10px}
 <script>
 (() => {
 "use strict";
-
-/* ===================== PSA standards ===================== */
-const PSA = [
-  {g:10, name:"Gem Mint", front:"55/45", back:"75/25", text:"Four sharp corners, sharp focus, full original gloss, no staining. A slight printing imperfection is allowed only if it doesn't hurt eye appeal."},
-  {g:9, name:"Mint", front:"60/40", back:"90/10", text:"One minor flaw: a very slight wax stain on the back, a minor printing imperfection, or slightly off-white borders."},
-  {g:8, name:"NM-MT", front:"65/35", back:"90/10", text:"Very slight wear on one or two corners. May add a slight wax stain, a minor printing imperfection, or slightly off-white borders."},
-  {g:7, name:"Near Mint", front:"70/30", back:"90/10", text:"Slight surface wear visible on close look, slight fraying on some corners, picture slightly out of focus. Most of the gloss remains."},
-  {g:6, name:"EX-MT", front:"80/20", back:"90/10", text:"Visible surface wear or a printing defect, slight fraying on corners, very slight notching on edges, some loss of gloss."},
-  {g:5, name:"Excellent", front:"85/15", back:"90/10", text:"Minor rounding of corners, minor chipping on edges, more visible surface wear, several light scratches, loss of gloss."},
-  {g:4, name:"VG-EX", front:"85/15", back:"90/10", text:"Slightly rounded corners, modest surface wear, light scuffing or scratches. Borders may be off-white; a light crease may show."},
-  {g:3, name:"Very Good", front:"90/10", back:"90/10", text:"Some corner rounding, apparent surface and edge wear, much of the gloss gone. Possible light crease and yellowed borders."},
-  {g:2, name:"Good", front:"90/10", back:"90/10", text:"Accelerated corner rounding, obvious wear, several creases, gloss nearly gone, considerable discoloration or staining."},
-  {g:1, name:"Poor", front:"any", back:"any", text:"Heavy wear and creasing. May be missing small pieces or have major surface damage, but the card is intact."}
-];
-const GNAME = {10:"Gem Mint",9:"Mint",8.5:"NM-MT+",8:"NM-MT",7.5:"Near Mint+",7:"Near Mint",6.5:"EX-MT+",6:"EX-MT",5.5:"Excellent+",5:"Excellent",4.5:"VG-EX+",4:"VG-EX",3.5:"Very Good+",3:"Very Good",2.5:"Good+",2:"Good",1.5:"Fair",1:"Poor"};
-const CAP_FRONT = [[55,10],[60,9],[65,8],[70,7],[80,6],[85,5],[90,3]];
-function capFront(worst){ for (const [t,g] of CAP_FRONT) if (worst <= t + 1e-9) return g; return 2; }
-
-/* ===================== Card data =====================
-   p = prices in USD for PSA 1..10 (index 0 = PSA 1). null = no reliable comps. */
-const CARDS = [
-  {id:"86fleer57", name:"1986-87 Fleer #57", tag:"Rookie card", keys:"1986 86 fleer 57 rookie rc base",
-   rarity:"Key rookie", rare:"The Jordan rookie. Printed in quantity, but PSA 10s are roughly 1% of graded copies.",
-   watch:"Centering (many copies are 65/35 or worse), print snow and dots on the red and blue frame, wax stains on the back.",
-   fake:"Raw 1986 Fleer Jordans are the most counterfeited card in the hobby. Check the print rosettes and the back, or buy it slabbed.",
-   conf:"High", src:"PSA 10 sales of $396,500 to $414,800 at Goldin and Heritage in Sep and Oct 2026. PSA 9 index near $41,700.",
-   p:[2000,2600,3200,4000,5000,6500,9000,16000,42000,400000]},
-  {id:"86sticker8", name:"1986-87 Fleer Sticker #8", tag:"Rookie-year sticker", keys:"1986 86 fleer sticker 8 rookie",
-   rarity:"Key rookie", rare:"About 128 PSA 10s, 2,180 PSA 9s and 4,746 PSA 8s reported.",
-   watch:"Centering is the usual grade killer. Check for peeling or creased sticker backing.",
-   fake:"Stickers are counterfeited too. Buy slabbed or compare against a known-good copy.",
-   conf:"Medium", src:"Card Ladder sales: PSA 10 $76,899 (Jun 2026), PSA 9 $11,049 (Jul 2026), PSA 8 $3,925 (Sep 2026).",
-   p:[550,700,900,1100,1350,1700,2300,3900,10500,72000]},
-  {id:"84star101", name:"1984-85 Star #101", tag:"Extended rookie (XRC)", keys:"1984 84 star 101 xrc rookie",
-   rarity:"Low print run", rare:"Star sold these in small team-bag runs. High-grade copies are very scarce and there are no reliable PSA 10 comps.",
-   watch:"Red borders show chipping easily. Miscuts and print bleed are common.",
-   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
-   conf:"Low", src:"Thin market. Reported PSA 9 sales range from about $107,000 to over $900,000, so pull your own comps.",
-   p:[8000,10000,13000,17000,23000,32000,50000,110000,400000,null]},
-  {id:"85star117", name:"1985-86 Star #117", tag:"Second-year Star", keys:"1985 85 star 117",
-   rarity:"Low print run", rare:"Small print run. Beckett reports only a few hundred graded.",
-   watch:"Chipping on the colored border and rough factory cuts.",
-   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
-   conf:"Low", src:"Card Ladder BGS 9.5 $35,700 (Jul 2026) and BGS 8.5 near $15,500. PSA comps are sparse.",
-   p:[1200,1500,1900,2400,3000,4000,5500,9000,22000,null]},
-  {id:"84courtkings26", name:"1984-85 Star Court Kings #26", tag:"5x7 oversize", keys:"1984 84 star court kings 26 5x7 oversize",
-   rarity:"Low print run", rare:"Oversize 5x7 card from a small Star issue.",
-   watch:"The large surface shows wear and creases; corners ding easily.",
-   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
-   conf:"Low", src:"Mostly asking prices (a BGS 8 listed near $15,000). Treat as rough.",
-   p:[1500,1900,2500,3100,3800,5000,7500,13000,40000,null]},
-  {id:"87fleer59", name:"1987-88 Fleer #59", tag:"Second-year Fleer", keys:"1987 87 fleer 59",
-   rarity:"Scarce in high grade", rare:"About 217 PSA 10s reported.",
-   watch:"Centering, print dots in the gray striped frame, wax stains on the back.",
-   conf:"Medium", src:"Card Ladder: PSA 10 $34,500 (Jun 2026), PSA 9 $5,170 (Aug 2026), PSA 6 $1,050 (Aug 2026).",
-   p:[350,420,520,650,800,1050,1300,1700,4600,40000]},
-  {id:"87sticker2", name:"1987-88 Fleer Sticker #2", tag:"Sticker", keys:"1987 87 fleer sticker 2",
-   rarity:"Scarce in high grade", rare:"Packed one per pack and often damaged.",
-   watch:"Centering and backing damage.",
-   conf:"Low", src:"PSA auction-price averages: PSA 10 $27,006, PSA 9 $1,830, PSA 8 $411.",
-   p:[60,75,100,125,150,190,260,410,1830,27000]},
-  {id:"88fleer17", name:"1988-89 Fleer #17", tag:"Base", keys:"1988 88 fleer 17",
-   rarity:"Common in mid grade", rare:"Printed in larger numbers. PSA 10 is the money grade.",
-   watch:"Centering and print lines on the gray gradient stripes.",
-   conf:"Medium", src:"Card Ladder: PSA 10 $7,500 to $12,750 (Aug 2026); PSA 9 auctions $710 to $810.",
-   p:[55,65,85,100,120,150,200,300,800,10000]},
-  {id:"89fleer21", name:"1989-90 Fleer #21", tag:"Base", keys:"1989 89 fleer 21",
-   rarity:"Junk-wax era", rare:"Mass-produced. Only high grades carry real money.",
-   watch:"Centering and print defects in the colored stripes.",
-   conf:"Low", src:"Price index PSA 10 near $1,041 and PSA 9 near $61; older guides run higher.",
-   p:[12,14,18,21,25,30,40,55,120,1400]},
-  {id:"89hoops200", name:"1989-90 Hoops #200", tag:"Base", keys:"1989 89 hoops 200 nba",
-   rarity:"Junk-wax era", rare:"Mass-produced. Below PSA 10 the grading fee eats most of the value.",
-   watch:"Centering and print defects.",
-   conf:"Medium", src:"Price index PSA 10 near $145 to $150 and PSA 9 near $21 to $23.",
-   p:[5,6,7,8,9,10,12,15,25,160]},
-  {id:"90fleer26", name:"1990-91 Fleer #26", tag:"Base", keys:"1990 90 fleer 26",
-   rarity:"Junk-wax era", rare:"Mass-produced. Watch for the black-line variation, listed separately.",
-   watch:"Centering and print defects.",
-   conf:"Low", src:"Guide estimate PSA 10 $150 to $250; PSA 9 listings near $90.",
-   p:[5,6,7,8,9,11,14,20,45,220]},
-  {id:"90hoops65", name:"1990-91 Hoops #65", tag:"Base", keys:"1990 90 hoops 65 nba",
-   rarity:"Junk-wax era", rare:"Mass-produced.",
-   watch:"Centering and print defects.",
-   conf:"Low", src:"Estimated from comparable junk-wax Jordan base cards.",
-   p:[4,5,6,7,8,9,11,14,25,140]},
-  {id:"90skybox41", name:"1990-91 SkyBox #41", tag:"Base", keys:"1990 90 skybox sky box 41",
-   rarity:"Junk-wax era", rare:"Mass-produced.",
-   watch:"Edges chip easily on this stock; centering varies a lot.",
-   conf:"Low", src:"Estimated from comparable junk-wax Jordan base cards.",
-   p:[5,6,7,8,9,11,14,20,50,350]},
-  {id:"91fleer29", name:"1991-92 Fleer #29", tag:"Base", keys:"1991 91 fleer 29",
-   rarity:"Junk-wax era", rare:"Mass-produced.",
-   watch:"Centering and print defects.",
-   conf:"Low", src:"Estimated from comparable junk-wax Jordan base cards.",
-   p:[4,5,6,7,8,9,11,14,30,150]},
-  {id:"93finest1", name:"1993-94 Finest #1", tag:"Base", keys:"1993 93 finest 1 topps chrome",
-   rarity:"Early chrome", rare:"Early chrome stock with dark borders that show every edge chip.",
-   watch:"Edge whitening on the dark border and scratches on the chrome surface.",
-   conf:"Low", src:"Estimate; scaled from the Finest refractor comps.",
-   p:[40,50,60,70,80,95,120,170,350,2200]},
-  {id:"93finest1r", name:"1993-94 Finest Refractor #1", tag:"Refractor", keys:"1993 93 finest 1 refractor",
-   rarity:"Short print", rare:"Refractors were short-printed. High-grade copies with a clean coating are scarce.",
-   watch:"Clouding or peeling of the protective coating, edge whitening, surface scratches.",
-   conf:"Medium", src:"Card Ladder PSA 9 $5,160 (Aug 2026) and $8,750 (Jul 2026); PSA 10 index $14,300 to $16,900.",
-   p:[900,1100,1300,1500,1800,2200,2800,3600,6000,16000]},
-  {id:"96chrome139", name:"1996-97 Topps Chrome #139", tag:"Base", keys:"1996 96 topps chrome 139",
-   rarity:"Chrome", rare:"The first Topps Chrome basketball set.",
-   watch:"Surface scratches, edge chipping, centering.",
-   conf:"Medium", src:"Vintage Card Prices PSA 10 average $2,277.",
-   p:[30,40,50,60,70,85,110,160,350,2200]},
-  {id:"96chrome139r", name:"1996-97 Topps Chrome Refractor #139", tag:"Refractor", keys:"1996 96 topps chrome 139 refractor",
-   rarity:"Short print", rare:"Refractor parallel; few sales a year in high grade.",
-   watch:"Surface scratches and edge chipping show badly on refractors.",
-   conf:"Low", src:"Price index PSA 10 near $25,100 and PSA 9 near $5,825, on one or two sales a year.",
-   p:[650,800,950,1100,1300,1600,2000,2800,5800,25000]},
-  {id:"custom", name:"Other Jordan card", tag:"Your comps", keys:"other custom",
-   rarity:"Unknown", rare:"Type recent PSA sale prices into the price table below and the estimate will use them.",
-   watch:"",
-   conf:"Yours", src:"Placeholder numbers. Replace them with recent sales.",
-   p:[10,12,15,18,22,28,38,60,150,800]}
-];
-const byId = Object.fromEntries(CARDS.map(c => [c.id, c]));
 
 /* ===================== Helpers ===================== */
 const $ = (s) => document.querySelector(s);
@@ -529,6 +424,145 @@ const store = {
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(/[$,%\s]/g, "")); return isFinite(n) ? n : null; };
 const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function sevClass(g){ return g == null ? "" : g >= 8.75 ? "sev-good" : g >= 6.75 ? "sev-warn" : "sev-bad"; }
+
+/* ===================== PSA standards ===================== */
+const PSA = [
+  {g:10, name:"Gem Mint", front:"55/45", back:"75/25", text:"Four sharp corners, sharp focus, full original gloss, no staining. A slight printing imperfection is allowed only if it doesn't hurt eye appeal."},
+  {g:9, name:"Mint", front:"60/40", back:"90/10", text:"One minor flaw: a very slight wax stain on the back, a minor printing imperfection, or slightly off-white borders."},
+  {g:8, name:"NM-MT", front:"65/35", back:"90/10", text:"Very slight wear on one or two corners. May add a slight wax stain, a minor printing imperfection, or slightly off-white borders."},
+  {g:7, name:"Near Mint", front:"70/30", back:"90/10", text:"Slight surface wear visible on close look, slight fraying on some corners, picture slightly out of focus. Most of the gloss remains."},
+  {g:6, name:"EX-MT", front:"80/20", back:"90/10", text:"Visible surface wear or a printing defect, slight fraying on corners, very slight notching on edges, some loss of gloss."},
+  {g:5, name:"Excellent", front:"85/15", back:"90/10", text:"Minor rounding of corners, minor chipping on edges, more visible surface wear, several light scratches, loss of gloss."},
+  {g:4, name:"VG-EX", front:"85/15", back:"90/10", text:"Slightly rounded corners, modest surface wear, light scuffing or scratches. Borders may be off-white; a light crease may show."},
+  {g:3, name:"Very Good", front:"90/10", back:"90/10", text:"Some corner rounding, apparent surface and edge wear, much of the gloss gone. Possible light crease and yellowed borders."},
+  {g:2, name:"Good", front:"90/10", back:"90/10", text:"Accelerated corner rounding, obvious wear, several creases, gloss nearly gone, considerable discoloration or staining."},
+  {g:1, name:"Poor", front:"any", back:"any", text:"Heavy wear and creasing. May be missing small pieces or have major surface damage, but the card is intact."}
+];
+const GNAME = {10:"Gem Mint",9.5:"(BGS/SGC)",9:"Mint",8.5:"NM-MT+",8:"NM-MT",7.5:"Near Mint+",7:"Near Mint",6.5:"EX-MT+",6:"EX-MT",5.5:"Excellent+",5:"Excellent",4.5:"VG-EX+",4:"VG-EX",3.5:"Very Good+",3:"Very Good",2.5:"Good+",2:"Good",1.5:"Fair",1:"Poor"};
+const CAP_FRONT = [[55,10],[60,9],[65,8],[70,7],[80,6],[85,5],[90,3]];
+function capFront(worst){ for (const [t,g] of CAP_FRONT) if (worst <= t + 1e-9) return g; return 2; }
+
+/* ===================== Card data =====================
+   s = SportsCardsPro full price guide, October 2026 snapshot, in USD.
+       u = ungraded, 1..10 = Grade 1..9 and PSA 10, "9.5" = BGS/SGC 9.5.
+   Grades SportsCardsPro doesn't list are estimated from the neighboring grades (see buildPrices). */
+const SCP_DATE = "Oct 2026";
+const CARDS = [
+  {id:"86fleer57", name:"1986-87 Fleer #57", tag:"Rookie card", keys:"1986 86 fleer 57 rookie rc base",
+   rarity:"Key rookie", rare:"The Jordan rookie. PSA and CGC report about 335 tens, 3,079 nines and 9,346 eights.",
+   watch:"Centering (many copies are 65/35 or worse), print snow and dots on the red and blue frame, wax stains on the back.",
+   fake:"Raw 1986 Fleer Jordans are the most counterfeited card in the hobby. Check the print rosettes and the back, or buy it slabbed.",
+   conf:"High", src:"Latest PSA 10 sale $396,500 on Oct 18, 2026.",
+   s:{u:4497, 1:5721, 2:5791, 3:6848, 4:7033, 5:8088, 6:9296, 7:12221, 8:17325, 9:32319, 10:396500}},
+  {id:"86sticker8", name:"1986-87 Fleer Sticker #8", tag:"Rookie-year sticker", keys:"1986 86 fleer sticker 8 rookie",
+   rarity:"Key rookie", rare:"About 128 PSA 10s, 2,180 PSA 9s and 4,746 PSA 8s reported.",
+   watch:"Centering is the usual grade killer. Check for peeling or creased sticker backing.",
+   fake:"Stickers are counterfeited too. Buy slabbed or compare against a known-good copy.",
+   conf:"High", src:"Recent PSA 10 sales range from about $34,000 to $75,000.",
+   s:{u:1550, 1:950, 2:1105, 3:1278, 4:1504, 5:1874, 6:2085, 7:2672, 8:3501, 9:10508, "9.5":16325, 10:52447}},
+  {id:"84star101", name:"1984-85 Star #101", tag:"Extended rookie (XRC)", keys:"1984 84 star 101 xrc rookie",
+   rarity:"Low print run", rare:"Star sold these in small team-bag runs. High-grade copies are very scarce and there is no PSA 10 price.",
+   watch:"Red borders show chipping easily. Miscuts and print bleed are common.",
+   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
+   conf:"Low", src:"Few sales, mostly BGS. A BGS 9 sold for $345,000 in Jul 2026. Low grades are uneven because of thin data.",
+   s:{u:9999, 1:17650, 2:15199, 3:16888, 4:44000, 5:63559, 6:74223, 7:111325, 8:132161, 9:218693, "9.5":240563}},
+  {id:"85star117", name:"1985-86 Star #117", tag:"Second-year Star", keys:"1985 85 star 117",
+   rarity:"Low print run", rare:"Small print run; most graded copies are BGS.",
+   watch:"Chipping on the colored border and rough factory cuts.",
+   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
+   conf:"Low", src:"Thin, mostly BGS sales. Grade 6 and below look low next to recent BGS 7.5 sales near $7,000. No PSA 10 price.",
+   s:{u:6561, 2:359, 3:399, 4:469, 5:552, 6:690, 7:2600, 8:3250, 9:7603, "9.5":15001}},
+  {id:"84courtkings26", name:"1984-85 Star Court Kings #26", tag:"5x7 oversize", keys:"1984 84 star court kings 26 5x7 oversize",
+   rarity:"Low print run", rare:"Oversize 5x7 card from a small Star issue.",
+   watch:"The large surface shows wear and creases; corners ding easily.",
+   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
+   conf:"Low", notScp:true, src:"Not listed on SportsCardsPro. These are rough estimates from asking prices; replace them with your own comps.",
+   p:[1500,1900,2500,3100,3800,5000,7500,13000,40000,null]},
+  {id:"87fleer59", name:"1987-88 Fleer #59", tag:"Second-year Fleer", keys:"1987 87 fleer 59",
+   rarity:"Scarce in high grade", rare:"About 217 PSA 10s reported.",
+   watch:"Centering, print dots in the gray striped frame, wax stains on the back.",
+   conf:"High", src:"Recent PSA 10 sales mostly $25,000 to $55,000.",
+   s:{u:639, 1:458, 2:336, 3:510, 4:543, 5:565, 6:706, 7:859, 8:1599, 9:3838, "9.5":7162, 10:31067}},
+  {id:"87sticker2", name:"1987-88 Fleer Sticker #2", tag:"Sticker", keys:"1987 87 fleer sticker 2",
+   rarity:"Scarce in high grade", rare:"Packed one per pack and often damaged.",
+   watch:"Centering and backing damage.",
+   conf:"Medium", src:"Grade 7 and below are estimated. Only two PSA 10 sales on record, both from 2020.",
+   s:{u:249, 8:854, 9:3987, "9.5":9999, 10:13910}},
+  {id:"88fleer17", name:"1988-89 Fleer #17", tag:"Base", keys:"1988 88 fleer 17",
+   rarity:"Common in mid grade", rare:"Printed in larger numbers. PSA 10 is the money grade.",
+   watch:"Centering and print lines on the gray gradient stripes.",
+   conf:"High", src:"Recent PSA 10 sales mostly $9,500 to $15,500 (Aug to Oct 2026).",
+   s:{u:188, 7:258, 8:379, 9:850, "9.5":1451, 10:11624}},
+  {id:"89fleer21", name:"1989-90 Fleer #21", tag:"Base", keys:"1989 89 fleer 21",
+   rarity:"Junk-wax era", rare:"Mass-produced. Only high grades carry real money.",
+   watch:"Centering and print defects in the colored stripes.",
+   conf:"Medium", src:"Recent PSA 10 sales mostly $3,300 to $4,300. Grade 7 and below are estimated.",
+   s:{u:27, 8:84, 9:242, 10:3860}},
+  {id:"89hoops200", name:"1989-90 Hoops #200", tag:"Base", keys:"1989 89 hoops 200 nba",
+   rarity:"Junk-wax era", rare:"Mass-produced. Below PSA 10 the grading fee eats most of the value.",
+   watch:"Centering and print defects.",
+   conf:"High", src:"Recent PSA 10 sales $420 to $615, latest Oct 21, 2026.",
+   s:{u:7.33, 8:33, 9:69.44, "9.5":107, 10:475}},
+  {id:"90fleer26", name:"1990-91 Fleer #26", tag:"Base", keys:"1990 90 fleer 26",
+   rarity:"Junk-wax era", rare:"Mass-produced. The No Line on Back variation sells higher and is priced separately.",
+   watch:"Centering and print defects.",
+   conf:"High", src:"Recent PSA 10 sales mostly $695 to $815.",
+   s:{u:10.87, 7:30, 8:38, 9:94, 10:758}},
+  {id:"90hoops65", name:"1990-91 Hoops #65", tag:"Base", keys:"1990 90 hoops 65 nba",
+   rarity:"Junk-wax era", rare:"Mass-produced. PSA 10s are surprisingly strong.",
+   watch:"Centering and print defects.",
+   conf:"High", src:"Recent PSA 10 sales mostly $1,000 to $1,400 (Jun to Oct 2026).",
+   s:{u:3.26, 7:20.49, 8:25.25, 9:71.85, "9.5":72.51, 10:1205}},
+  {id:"90skybox41", name:"1990-91 SkyBox #41", tag:"Base", keys:"1990 90 skybox sky box 41",
+   rarity:"Junk-wax era", rare:"Mass-produced. Don't confuse it with the SkyBox prototype, which trades far higher.",
+   watch:"Edges chip easily on this stock; centering varies a lot.",
+   conf:"High", src:"Recent PSA 10 sales $760 to $1,000 (Sep and Oct 2026).",
+   s:{u:4.90, 7:19.67, 8:35, 9:92.50, "9.5":174.41, 10:835}},
+  {id:"91fleer29", name:"1991-92 Fleer #29", tag:"Base", keys:"1991 91 fleer 29",
+   rarity:"Junk-wax era", rare:"Mass-produced. The 3D wrapper-redemption #29 is a different, far pricier card.",
+   watch:"Centering and print defects.",
+   conf:"High", src:"Recent PSA 10 sales mostly $1,000 to $1,300.",
+   s:{u:3.23, 7:19.99, 8:24.99, 9:69, 10:1083}},
+  {id:"93finest1", name:"1993-94 Finest #1", tag:"Base", keys:"1993 93 finest 1 topps chrome",
+   rarity:"Early chrome", rare:"Early chrome stock with dark borders that show every edge chip.",
+   watch:"Edge whitening on the dark border and scratches on the chrome surface.",
+   conf:"Medium", src:"Recent PSA 10 sales $1,300 to $4,000, newest $3,400 to $3,500.",
+   s:{u:212, 7:207, 8:283, 9:615, "9.5":997, 10:3600}},
+  {id:"93finest1r", name:"1993-94 Finest Refractor #1", tag:"Refractor", keys:"1993 93 finest 1 refractor",
+   rarity:"Short print", rare:"Refractors were short-printed. High-grade copies with a clean coating are scarce.",
+   watch:"Clouding or peeling of the protective coating, edge whitening, surface scratches.",
+   conf:"Low", src:"Grades 7 and 8 are estimated. Grade 9 swings between about $3,500 and $9,800 across snapshots.",
+   s:{u:2625, 6:1900, 9:9837, 10:32000}},
+  {id:"96chrome139", name:"1996-97 Topps Chrome #139", tag:"Base", keys:"1996 96 topps chrome 139",
+   rarity:"Chrome", rare:"The first Topps Chrome basketball set.",
+   watch:"Surface scratches, edge chipping, centering.",
+   conf:"Medium", src:"Grades 8 and below are estimated. Recent PSA 10 sales mostly $1,000 to $2,500.",
+   s:{u:210, 9:900, 10:3071}},
+  {id:"96chrome139r", name:"1996-97 Topps Chrome Refractor #139", tag:"Refractor", keys:"1996 96 topps chrome 139 refractor",
+   rarity:"Short print", rare:"Refractor parallel; few sales a year in high grade.",
+   watch:"Surface scratches and edge chipping show badly on refractors.",
+   conf:"Low", src:"The PSA 10 price rests on a single 2020 sale. Grades 8 and below are estimated.",
+   s:{u:5000, 9:12110, 10:25100}},
+  {id:"custom", name:"Other Jordan card", tag:"Your comps", keys:"other custom",
+   rarity:"Unknown", rare:"Paste the card's SportsCardsPro price guide below, or type recent sale prices into the table.",
+   watch:"",
+   conf:"Yours", notScp:true, src:"Placeholder numbers. Replace them with real prices.",
+   s:{u:20, 7:38, 8:60, 9:150, 10:800}}
+];
+// Ratio of each low grade to the grade above it, from cards where SportsCardsPro lists every grade.
+const LOW_RATIO = {6:0.78, 5:0.86, 4:0.87, 3:0.9, 2:0.83, 1:0.93};
+function buildPrices(card){
+  const g = new Array(10).fill(null), est = new Array(10).fill(false);
+  if (card.p){ card.p.forEach((v, i) => { g[i] = v; }); return {g, est, u:null, g95:null}; }
+  const s = card.s || {};
+  for (let k = 1; k <= 10; k++) if (s[k] != null) g[k-1] = s[k];
+  if (g[7] == null && g[8] != null){ g[7] = sig3(g[8]*0.4); est[7] = true; }
+  if (g[6] == null && g[7] != null){ g[6] = sig3(g[7]*0.72); est[6] = true; }
+  for (let k = 6; k >= 1; k--) if (g[k-1] == null && g[k] != null){ g[k-1] = sig3(g[k]*LOW_RATIO[k]); est[k-1] = true; }
+  return {g, est, u: s.u ?? null, g95: s["9.5"] ?? null};
+}
+for (const c of CARDS) c.base = buildPrices(c);
+const byId = Object.fromEntries(CARDS.map(c => [c.id, c]));
 
 /* ===================== Image analysis =====================
    Pass 1 finds the card on a small copy of the screenshot; pass 2 measures a sharper copy
@@ -881,11 +915,14 @@ function readPixels(ctx, canvas, src, sx, sy, sw, sh, W, H){
   return {W, H, R, G, B, Y, Rb:boxBlur(R,W,H), Gb:boxBlur(G,W,H), Bb:boxBlur(B,W,H)};
 }
 
-function analyzeImage(src, srcW, srcH, forceTight){
+// opts.forceTight: true = the image is the card, false = never assume that, null = decide.
+// opts.box: where the card is already known to be ([x0, y0, x1, y1], from 4-corner flattening).
+function analyzeImage(src, srcW, srcH, opts = {}){
   const t0 = performance.now();
+  const forceTight = opts.box ? false : (opts.forceTight ?? null), box = opts.box || null;
   // Pass 1: find the card on a small copy of the whole screenshot.
   let crop = [0, 0, srcW, srcH], tight = forceTight === true, autoTight = false;
-  if (!tight){
+  if (!tight && !box){
     const s1 = Math.min(1, 560 / Math.max(srcW, srcH));
     const A1 = readPixels(dctx, det, src, 0, 0, srcW, srcH, Math.max(16, Math.round(srcW*s1)), Math.max(16, Math.round(srcH*s1)));
     const c = detectCard(A1, 2);
@@ -908,10 +945,19 @@ function analyzeImage(src, srcW, srcH, forceTight){
   let found = null, fit = null;
   if (!tight){
     found = detectCard(A, 1);
+    if (found && box){
+      // The blob must match the corners the user placed; otherwise trust their corners.
+      const [x0, y0, x1, y1] = found.bb.map(v => v/sc);
+      const ix = Math.max(0, Math.min(x1, box[2]) - Math.max(x0, box[0])), iy = Math.max(0, Math.min(y1, box[3]) - Math.max(y0, box[1]));
+      const inter = ix*iy, uni = (x1-x0)*(y1-y0) + (box[2]-box[0])*(box[3]-box[1]) - inter;
+      if (inter / uni < 0.85) found = null;
+    }
     if (found) fit = fitEdges(found.mask, W, found.bb);
-    if (!fit){ const r = analyzeImage(src, srcW, srcH, true); r.autoTight = forceTight == null; r.ms = performance.now() - t0; return r; }
+    if (!fit && !box){ const r = analyzeImage(src, srcW, srcH, {forceTight:true}); r.autoTight = forceTight == null; r.ms = performance.now() - t0; return r; }
   }
-  const lines = fit ? fit.lines : {L:{a:0,b:0}, R:{a:0,b:W-1}, T:{a:0,b:0}, B:{a:0,b:H-1}};
+  const lines = fit ? fit.lines
+    : box ? {L:{a:0,b:box[0]*sc}, R:{a:0,b:box[2]*sc}, T:{a:0,b:box[1]*sc}, B:{a:0,b:box[3]*sc}}
+    : {L:{a:0,b:0}, R:{a:0,b:W-1}, T:{a:0,b:0}, B:{a:0,b:H-1}};
   const corner = (fv, fh) => { const x = (fv.a*fh.b + fv.b) / (1 - fv.a*fh.a); return {x, y: fh.a*x + fh.b}; };
   const C = {tl:corner(lines.L, lines.T), tr:corner(lines.R, lines.T), bl:corner(lines.L, lines.B), br:corner(lines.R, lines.B)};
   const midY = (C.tl.y + C.tr.y + C.bl.y + C.br.y) / 4, midX = (C.tl.x + C.tr.x + C.bl.x + C.br.x) / 4;
@@ -919,11 +965,15 @@ function analyzeImage(src, srcW, srcH, forceTight){
   const oT = lines.T.a*midX + lines.T.b, oB = lines.B.a*midX + lines.B.b + 1;
   const cardW = oR - oL, cardH = oB - oT;
   const tilt = Math.abs((Math.atan(lines.T.a) + Math.atan(lines.B.a) - Math.atan(lines.L.a) - Math.atan(lines.R.a)) / 4) * 180/Math.PI;
+  // Edges that aren't parallel mean the photo was taken at an angle.
+  const skew = fit ? Math.max(Math.abs(Math.atan(lines.L.a) - Math.atan(lines.R.a)), Math.abs(Math.atan(lines.T.a) - Math.atan(lines.B.a))) * 180/Math.PI : 0;
 
   const bw = borderWidths(A, lines, C, cardW, cardH);
   const centerOk = ["L","R","T","B"].every(s => bw[s].n >= 10 && bw[s].agree >= 0.3 && bw[s].w > 0);
   const dflt = (s, span) => bw[s].w > 0 && bw[s].agree >= 0.2 ? bw[s].w : span*0.05;
   const guides = {oL, oR, oT, oB, iL: oL + dflt("L",cardW), iR: oR - dflt("R",cardW), iT: oT + dflt("T",cardH), iB: oB - dflt("B",cardH)};
+  // With 4 corners, the card edge is where the user put it.
+  if (box) Object.assign(guides, {oL: box[0]*sc, oR: (box[2]+1)*sc, oT: box[1]*sc, oB: (box[3]+1)*sc});
 
   const refs = ["L","R","T","B"].map(s => bw[s].ref).filter(Boolean);
   const refLum = refs.length ? refs.reduce((a,[r,g,b]) => a + (r*77 + g*150 + b*29)/256, 0) / refs.length : 128;
@@ -953,7 +1003,7 @@ function analyzeImage(src, srcW, srcH, forceTight){
     edges: 0.45 + 1.1*(1-Q) + (tone.white ? 0.35 : 0),
     surface: 1.1 + 0.6*(1-Q) + (surface.glareFrac > 0.05 ? 0.4 : 0)
   };
-  return {W, H, sc, offX:A.offX, offY:A.offY, tight, autoTight, lines, C, cardW, cardH, tilt, bw, centerOk, guides0:{...guides},
+  return {W, H, sc, offX:A.offX, offY:A.offY, tight, autoTight, lines, C, cardW, cardH, tilt, skew, bw, centerOk: centerOk, guides0:{...guides},
     corners, cornersG, edges, surface, tone, Q, sig, ms: performance.now() - t0};
 }
 
@@ -1004,7 +1054,8 @@ function makeSample(){
 const saved = store.get("jca.settings", {});
 const S = {
   src:null, srcW:0, srcH:0, file:null, isSample:true, token:0,
-  an:null, guides:null, guidesEdited:false, tightForce:null,
+  an:null, anOrig:null, guides:null, guidesEdited:false, tightForce:null,
+  guideMode: saved.guideMode === "corners" ? "corners" : "lines", quad:null, flat:null,
   cardId:"86fleer57", userPickedCard:false,
   mode:"raw", slabGrade:9, qual:"",
   manual:{}, ai:null,
@@ -1012,13 +1063,29 @@ const S = {
   tier: saved.tier ?? "quick", autoAsk: saved.autoAsk ?? true,
   prices: store.get("jca.prices", {})
 };
-function saveSettings(){ const b = S.bid; store.set("jca.settings", {bp:b.bp, tax:b.tax, ship:b.ship, margin:b.margin, basis:b.basis, tier:S.tier, autoAsk:S.autoAsk}); }
+function saveSettings(){ const b = S.bid; store.set("jca.settings", {bp:b.bp, tax:b.tax, ship:b.ship, margin:b.margin, basis:b.basis, tier:S.tier, autoAsk:S.autoAsk, guideMode:S.guideMode}); }
 
 /* ===================== Prices ===================== */
-function priceList(card){ const o = S.prices[card.id] || {}; return card.p.map((v, i) => o[i+1] != null ? o[i+1] : v); }
+// Built-in SportsCardsPro prices with the viewer's own edits and pastes on top.
+function priceList(card){
+  const o = S.prices[card.id] || {}, b = card.base;
+  return {
+    g: b.g.map((v, i) => o[i+1] != null ? o[i+1] : v),
+    est: b.est.map((e, i) => e && o[i+1] == null),
+    u: o.u != null ? o.u : b.u,
+    g95: o["9.5"] != null ? o["9.5"] : b.g95,
+    note: o._src || null
+  };
+}
 function priceAt(card, g){
-  const t = priceList(card);
-  const get = (k) => { for (let j = clamp(k,1,10); j >= 1; j--) if (t[j-1] != null) return t[j-1]; return 0; };
+  const L = priceList(card), t = L.g;
+  const get = (k) => {
+    k = clamp(Math.round(k), 1, 10);
+    for (let j = k; j >= 1; j--) if (t[j-1] != null) return t[j-1];
+    for (let j = k + 1; j <= 10; j++) if (t[j-1] != null) return t[j-1];
+    return 0;
+  };
+  if (g === 9.5 && L.g95 != null) return L.g95;
   if (Number.isInteger(g)) return get(g);
   const a = get(Math.floor(g)), b = get(Math.ceil(g));
   return a > 0 ? a * Math.pow(b/a, 0.35) : b;
@@ -1091,7 +1158,8 @@ const els = {};
 ["view","stage","stageNote","timing","tightChk","meas","flags","q","qList","cardName","cardChips","cardRare","cardWatch","cardFake",
  "slabCtl","slabGrade","qual","vMainLab","vMain","vSub","vMax","vMaxSub","verdict","bCur","bBp","bTax","bShip","bFee","bFeeLab","bMargin","bBasis",
  "gNum","gLab","gName","gSub","dist","cVal","cChip","sCorners","oCorners","chCorners","sEdges","oEdges","chEdges","sSurface","oSurface","chSurface",
- "aiPanel","aiState","aiMsg","askBtn","stopBtn","autoAsk","tier","aiFinds","priceSrc","pBody","compsLink","stdBody","file"].forEach(id => els[id] = document.getElementById(id));
+ "aiPanel","aiState","aiMsg","askBtn","stopBtn","autoAsk","tier","aiFinds","priceSrc","pBody","compsLink","stdBody","file",
+ "gmLines","gmCorners","unflat","helpLines","helpCorners"].forEach(id => els[id] = document.getElementById(id));
 
 function chipClass(src){ return src === "You" ? "chip blue" : src.includes("Claude") ? "chip good" : src === "Assumed" || src === "Not found" ? "chip warn" : "chip"; }
 
@@ -1117,8 +1185,8 @@ function update(){
   els.vMainLab.textContent = raw ? "Value if graded" : "Value";
   els.vMain.textContent = usd(vm.basis);
   els.vSub.textContent = raw
-    ? `Expected ${usd(vm.ev)} · conservative ${usd(vm.cons)} · PSA ${gm.mode} ≈ ${usd(vm.likely)}`
-    : `PSA ${S.slabGrade}${S.qual ? " " + S.qual : ""} comps${S.qual ? ", valued about two grades lower" : ""}`;
+    ? `Expected ${usd(vm.ev)} · conservative ${usd(vm.cons)} · PSA ${gm.mode} ≈ ${usd(vm.likely)}` + (priceList(card).u != null ? ` · raw copies sell near ${usd(priceList(card).u)}` : "")
+    : `${S.slabGrade === 9.5 ? "BGS/SGC 9.5" : "PSA " + S.slabGrade}${S.qual ? " " + S.qual : ""} comps${S.qual ? ", valued about two grades lower" : ""}`;
   els.vMax.textContent = usd(maxBid, "floor");
   const parts = [];
   if (b.bp) parts.push(`${b.bp}% premium`); if (b.tax) parts.push(`${b.tax}% tax`); if (b.ship) parts.push(`$${b.ship} shipping`);
@@ -1144,7 +1212,7 @@ function update(){
       const p = gm.dist[g];
       if (g <= 4 && g < gm.lo){ low += p; continue; }
       if (p < 0.005 && g !== gm.mode) continue;
-      els.dist.append(distRow(`PSA ${g}`, p, maxP, priceAt(card, g), g === gm.mode, g === 10 && card.p[9] == null && !(S.prices[card.id] || {})[10]));
+      els.dist.append(distRow(`PSA ${g}`, p, maxP, priceAt(card, g), g === gm.mode, g === 10 && priceList(card).g[9] == null));
     }
     if (low >= 0.005) els.dist.append(distRow("PSA 1-4", low, maxP, priceAt(card, 3), false));
   } else {
@@ -1166,6 +1234,7 @@ function update(){
   renderPrices(card);
   const link = "https://www.ebay.com/sch/i.html?_nkw=" + encodeURIComponent(card.id === "custom" ? "michael jordan psa" : card.name.replace(/-\d\d /, " ") + " Michael Jordan PSA") + "&LH_Sold=1&LH_Complete=1";
   els.compsLink.href = link;
+  $("#scpLink").href = "https://www.sportscardspro.com/search-products?type=prices&q=" + encodeURIComponent(card.id === "custom" ? "michael jordan" : "michael jordan " + card.name.replace(/-\d\d /, " ").replace("#", ""));
 }
 function distRow(label, p, maxP, price, top, noTen){
   const r = document.createElement("div"); r.className = "drow" + (top ? " top" : "");
@@ -1205,6 +1274,7 @@ function renderMeasurements(gm){
     const where = [...new Set(A.edges.notches.map(n => sides[n.side]))].join(", ");
     flags.push(["warn", `Possible chip or dent on the ${where} edge.`]);
   }
+  if (!S.flat && A.skew > 0.8) flags.push(["warn", "The card's edges aren't parallel, so the photo was taken at an angle. Switch to 4 corners (press C) to flatten it before trusting the centering."]);
   if (A.tone.white) flags.push(["", "White border: edge whitening doesn't show on the front. Check the back."]);
   if (A.surface.glareFrac > 0.05) flags.push(["warn", "Glare covers part of the photo, so surface flaws may be hidden."]);
   if (A.Q < 0.35) flags.push(["warn", "Low-detail image. The grade range is wide; ask the seller for a scan or zoom in on the listing first."]);
@@ -1214,19 +1284,37 @@ function renderMeasurements(gm){
 }
 
 function renderPrices(card){
-  els.priceSrc.textContent = card.src;
-  const list = priceList(card), body = els.pBody;
+  const L = priceList(card), body = els.pBody;
+  els.priceSrc.textContent = L.note ? L.note + "." : card.notScp ? card.src
+    : `SportsCardsPro price guide, ${SCP_DATE}. ${card.src}`;
   if (body.dataset.card === card.id && body.contains(document.activeElement)) return;
   body.dataset.card = card.id; body.innerHTML = "";
-  for (let g = 10; g >= 1; g--){
+  const row = (key, label, value, est, empty) => {
     const tr = document.createElement("tr");
-    const th = document.createElement("th"); th.textContent = `PSA ${g} ${GNAME[g]}`;
-    const td = document.createElement("td"); const inp = document.createElement("input");
-    inp.id = `price-${g}`; inp.inputMode = "decimal"; inp.dataset.g = g;
-    inp.value = list[g-1] != null ? list[g-1] : ""; inp.placeholder = list[g-1] == null ? "no reliable comps" : "";
-    inp.setAttribute("aria-label", `Price for PSA ${g}`);
+    const th = document.createElement("th"); th.textContent = label;
+    if (est){ const c = document.createElement("span"); c.className = "chip est"; c.textContent = "est."; c.title = "Not listed on SportsCardsPro; estimated from the neighboring grades"; th.append(" ", c); }
+    const td = document.createElement("td"), inp = document.createElement("input");
+    inp.id = `price-${key}`; inp.inputMode = "decimal"; inp.dataset.g = key;
+    inp.value = value != null ? value : ""; inp.placeholder = value == null ? empty : "";
+    inp.setAttribute("aria-label", `Price for ${label}`);
     td.append(inp); tr.append(th, td); body.append(tr);
+  };
+  row("u", "Ungraded (raw)", L.u, false, "no price");
+  for (let g = 10; g >= 1; g--) row(String(g), `PSA ${g} ${GNAME[g]}`, L.g[g-1], L.est[g-1], g === 10 ? "no PSA 10 price" : "no price");
+  row("9.5", "9.5 (BGS/SGC)", L.g95, false, "no price");
+}
+
+// Reads the Full Price Guide table copied from a SportsCardsPro card page, e.g.
+// "Ungraded $4,497.00  Grade 1 $5,721.12 … Grade 9.5 $… PSA 10 $396,500.00".
+function parseScp(text){
+  const out = {}, re = /(ungraded|grade\s*(9\.5|10|[1-9])(?![\d.])|psa\s*10)\s*[:|·•\-–—]?\s*\$\s*([\d,]+(?:\.\d+)?)/gi;
+  let m;
+  while ((m = re.exec(text))){
+    const label = m[1].toLowerCase(), v = parseFloat(m[3].replace(/,/g, ""));
+    const key = label.startsWith("ungraded") ? "u" : label.startsWith("psa") ? "10" : m[2];
+    if (isFinite(v) && !(key in out)) out[key] = v;
   }
+  return out;
 }
 
 function renderStandards(){
@@ -1238,25 +1326,117 @@ function renderStandards(){
   }
 }
 
+/* ===================== 4-corner flattening ===================== */
+// Homography h (8 numbers, h33 = 1) that maps the 4 points P onto the 4 points Q.
+function solveHomography(P, Q){
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++){
+    const u = P[i].x, v = P[i].y, x = Q[i].x, y = Q[i].y;
+    A.push([u, v, 1, 0, 0, 0, -u*x, -v*x]); b.push(x);
+    A.push([0, 0, 0, u, v, 1, -u*y, -v*y]); b.push(y);
+  }
+  for (let c = 0; c < 8; c++){
+    let piv = c;
+    for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+    if (Math.abs(A[piv][c]) < 1e-10) return null;
+    [A[c], A[piv]] = [A[piv], A[c]]; [b[c], b[piv]] = [b[piv], b[c]];
+    for (let r = 0; r < 8; r++){
+      if (r === c) continue;
+      const f = A[r][c] / A[c][c];
+      if (!f) continue;
+      for (let k = c; k < 8; k++) A[r][k] -= f*A[c][k];
+      b[r] -= f*b[c];
+    }
+  }
+  return b.map((v, i) => v / A[i][i]);
+}
+function applyH(h, u, v){ const w = h[6]*u + h[7]*v + 1; return {x:(h[0]*u + h[1]*v + h[2])/w, y:(h[3]*u + h[4]*v + h[5])/w}; }
+
+// Warps the card inside quad q (tl, tr, br, bl, in screenshot pixels) onto a flat
+// 2.5 x 3.5 rectangle, keeping a margin of background around it for the edge scan.
+function flatten(q){
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const across = (d(q[0], q[1]) + d(q[3], q[2])) / 2, down = (d(q[0], q[3]) + d(q[1], q[2])) / 2;
+  if (across < 12 || down < 12) return null;
+  const wide = across > down * 1.1;
+  const long = clamp(Math.max(wide ? across : down, (wide ? down : across) * 1.4), 300, 960);
+  const cw = Math.round(wide ? long : long*0.714), ch = Math.round(wide ? long*0.714 : long);
+  const m = Math.round(0.07*long), OW = cw + 2*m, OH = ch + 2*m;
+  const plane = [{x:0, y:0}, {x:cw, y:0}, {x:cw, y:ch}, {x:0, y:ch}];
+  const H = solveHomography(plane, q), Hinv = solveHomography(q, plane);
+  if (!H || !Hinv) return null;
+  for (let i = 0; i < 4; i++){ const t = applyH(Hinv, q[i].x, q[i].y); if (!isFinite(t.x) || Math.hypot(t.x - plane[i].x, t.y - plane[i].y) > 2) return null; }
+  // Read only the part of the screenshot the output needs.
+  const ext = [[-m,-m], [cw+m,-m], [cw+m,ch+m], [-m,ch+m]].map(([u, v]) => applyH(H, u, v));
+  if (ext.some(p => !isFinite(p.x) || !isFinite(p.y))) return null;
+  const rx = clamp(Math.floor(Math.min(...ext.map(p => p.x))) - 1, 0, S.srcW - 2), ry = clamp(Math.floor(Math.min(...ext.map(p => p.y))) - 1, 0, S.srcH - 2);
+  const rw = clamp(Math.ceil(Math.max(...ext.map(p => p.x))) + 2, rx + 2, S.srcW) - rx, rh = clamp(Math.ceil(Math.max(...ext.map(p => p.y))) + 2, ry + 2, S.srcH) - ry;
+  const rc = document.createElement("canvas"); rc.width = rw; rc.height = rh;
+  const rg = rc.getContext("2d", {willReadFrequently: true});
+  rg.drawImage(S.src, rx, ry, rw, rh, 0, 0, rw, rh);
+  const sd = rg.getImageData(0, 0, rw, rh).data;
+  const out = document.createElement("canvas"); out.width = OW; out.height = OH;
+  const og = out.getContext("2d", {willReadFrequently: true}), od = og.createImageData(OW, OH), o = od.data;
+  const [h0, h1, h2, h3, h4, h5, h6, h7] = H, maxX = rw - 1.001, maxY = rh - 1.001;
+  for (let Y = 0; Y < OH; Y++){
+    const v = Y - m + 0.5;
+    for (let X = 0; X < OW; X++){
+      const u = X - m + 0.5, w = h6*u + h7*v + 1;
+      let sx = (h0*u + h1*v + h2)/w - rx - 0.5, sy = (h3*u + h4*v + h5)/w - ry - 0.5;
+      sx = sx < 0 ? 0 : sx > maxX ? maxX : sx; sy = sy < 0 ? 0 : sy > maxY ? maxY : sy;
+      const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+      const i00 = (y0*rw + x0)*4, i10 = i00 + 4, i01 = i00 + rw*4, i11 = i01 + 4, oi = (Y*OW + X)*4;
+      for (let c = 0; c < 3; c++){
+        const top = sd[i00+c] + (sd[i10+c] - sd[i00+c])*fx, bot = sd[i01+c] + (sd[i11+c] - sd[i01+c])*fx;
+        o[oi+c] = top + (bot - top)*fy;
+      }
+      o[oi+3] = 255;
+    }
+  }
+  og.putImageData(od, 0, 0);
+  return {canvas:out, H, Hinv, m, cw, ch, box:[m, m, m + cw - 1, m + ch - 1]};
+}
+// Card corners found by the scan of the original screenshot, as a starting quad.
+function autoQuad(){
+  const A = S.anOrig;
+  const at = (p, dx, dy) => ({x: clamp(A.offX + (p.x + dx)/A.sc, 0, S.srcW), y: clamp(A.offY + (p.y + dy)/A.sc, 0, S.srcH)});
+  return [at(A.C.tl, 0, 0), at(A.C.tr, 1, 0), at(A.C.br, 1, 1), at(A.C.bl, 0, 1)];
+}
+
 /* ===================== Canvas: view + guides ===================== */
-let viewK = 1, drag = null, rafPending = false;
+let viewK = 1, drag = null, rafPending = false, cview = null, cdrag = null;
+const aimg = () => S.flat ? S.flat.canvas : S.src;
 function scheduleDraw(){ if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawView(); }); }
-function drawView(){
-  const A = S.an; if (!A) return;
+function drawView(){ if (S.guideMode === "corners" && S.flat && S.quad) drawQuadView(); else drawLinesView(); }
+function sizeView(w0, h0){
   const cv = els.view, st = els.stage;
   const availW = Math.max(120, st.clientWidth - 22);
   const availH = Math.max(260, Math.min(window.innerHeight * 0.66, 760));
-  const k = Math.min(availW / A.W, availH / A.H);
-  const w = Math.max(1, Math.floor(A.W*k)), h = Math.max(1, Math.floor(A.H*k));
+  const k = Math.min(availW / w0, availH / h0);
+  const w = Math.max(1, Math.floor(w0*k)), h = Math.max(1, Math.floor(h0*k));
   const dpr = Math.min(3, window.devicePixelRatio || 1);
   if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
   cv.style.width = w + "px"; cv.style.height = h + "px";
-  viewK = k;
   const g = cv.getContext("2d");
   g.setTransform(1,0,0,1,0,0); g.clearRect(0, 0, cv.width, cv.height);
-  g.setTransform(dpr*k, 0, 0, dpr*k, 0, 0);
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
-  g.drawImage(S.src, A.offX, A.offY, A.W/A.sc, A.H/A.sc, 0, 0, A.W, A.H);
+  viewK = k;
+  return {g, k, dpr};
+}
+function centeringBadge(g, px, x, y){
+  const cen = currentCentering();
+  if (!cen || cen.unknown) return;
+  const label = `${Math.round(cen.lr)}/${Math.round(100-cen.lr)} · ${Math.round(cen.tb)}/${Math.round(100-cen.tb)}`;
+  g.font = `600 ${12*px}px ${cssVar("--mono") || "monospace"}`;
+  const tw = g.measureText(label).width, bx = x - tw/2 - 6*px;
+  g.fillStyle = "rgba(10,14,24,.78)"; g.fillRect(bx, y, tw + 12*px, 18*px);
+  g.fillStyle = "#fff"; g.textBaseline = "middle"; g.fillText(label, bx + 6*px, y + 9*px);
+}
+function drawLinesView(){
+  const A = S.an; if (!A) return;
+  const {g, k, dpr} = sizeView(A.W, A.H);
+  g.setTransform(dpr*k, 0, 0, dpr*k, 0, 0);
+  g.drawImage(aimg(), A.offX, A.offY, A.W/A.sc, A.H/A.sc, 0, 0, A.W, A.H);
   const Gd = S.guides, px = 1/k;
   const cO = cssVar("--guide-outer") || "#E0115F", cI = cssVar("--guide-inner") || "#0A7CFF";
   g.save(); g.globalAlpha = 0.16; g.fillStyle = cI;
@@ -1273,7 +1453,6 @@ function drawView(){
   for (const key of ["oT","oB"]) hline(Gd[key], cO, drag?.k === key);
   for (const key of ["iT","iB"]) hline(Gd[key], cI, drag?.k === key);
   const handle = (x, y, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, 4.5*px, 0, Math.PI*2); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.5*px; g.stroke(); };
-  const mx = (Gd.oL + Gd.oR)/2;
   handle(Gd.oL, Gd.oT - ext, cO); handle(Gd.oR, Gd.oT - ext, cO); handle(Gd.oL - ext, Gd.oT, cO); handle(Gd.oL - ext, Gd.oB, cO);
   handle(Gd.iL, Gd.oB + ext, cI); handle(Gd.iR, Gd.oB + ext, cI); handle(Gd.oR + ext, Gd.iT, cI); handle(Gd.oR + ext, Gd.iB, cI);
   const sevCol = (gr) => gr >= 8.75 ? cssVar("--good") : gr >= 6.75 ? cssVar("--warn") : cssVar("--bad");
@@ -1291,14 +1470,57 @@ function drawView(){
       g.beginPath(); g.arc(x, y, 7*px, 0, Math.PI*2); g.stroke();
     }
   }
-  const cen = currentCentering();
-  if (cen && !cen.unknown){
-    const label = `${Math.round(cen.lr)}/${Math.round(100-cen.lr)} · ${Math.round(cen.tb)}/${Math.round(100-cen.tb)}`;
-    g.font = `600 ${12*px}px ${cssVar("--mono") || "monospace"}`;
-    const tw = g.measureText(label).width, bx = mx - tw/2 - 6*px, by = Math.max(2*px, Gd.oT - ext - 24*px);
-    g.fillStyle = "rgba(10,14,24,.78)"; g.fillRect(bx, by, tw + 12*px, 18*px);
-    g.fillStyle = "#fff"; g.textBaseline = "middle"; g.fillText(label, bx + 6*px, by + 9*px);
-  }
+  centeringBadge(g, px, (Gd.oL + Gd.oR)/2, Math.max(2*px, Gd.oT - ext - 24*px));
+}
+function quadViewport(){
+  const xs = S.quad.map(p => p.x), ys = S.quad.map(p => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const pad = 0.14 * Math.max(x1 - x0, y1 - y0, 40);
+  const vx = clamp(x0 - pad, 0, S.srcW - 1), vy = clamp(y0 - pad, 0, S.srcH - 1);
+  return {vx, vy, vw: Math.max(1, clamp(x1 + pad, 0, S.srcW) - vx), vh: Math.max(1, clamp(y1 + pad, 0, S.srcH) - vy)};
+}
+// Inner border corners (blue) in screenshot pixels, from the guides on the flattened card.
+function innerQuad(){
+  const F = S.flat, A = S.an, Gd = S.guides;
+  const at = (x, y) => applyH(F.H, A.offX + x/A.sc - F.m, A.offY + y/A.sc - F.m);
+  return [at(Gd.iL, Gd.iT), at(Gd.iR, Gd.iT), at(Gd.iR, Gd.iB), at(Gd.iL, Gd.iB)];
+}
+function drawQuadView(){
+  if (!cview) cview = quadViewport();
+  const V = cview, {g, k, dpr} = sizeView(V.vw, V.vh), px = 1/k;
+  g.setTransform(dpr*k, 0, 0, dpr*k, -dpr*k*V.vx, -dpr*k*V.vy);
+  g.drawImage(S.src, V.vx, V.vy, V.vw, V.vh, V.vx, V.vy, V.vw, V.vh);
+  const cO = cssVar("--guide-outer") || "#E0115F", cI = cssVar("--guide-inner") || "#0A7CFF";
+  const q = S.quad, inner = cdrag?.outer ? null : innerQuad();
+  const path = (pts) => { g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < 4; i++) g.lineTo(pts[i].x, pts[i].y); g.closePath(); };
+  if (inner){ g.save(); g.globalAlpha = 0.16; g.fillStyle = cI; g.beginPath(); path(q); path(inner); g.fill("evenodd"); g.restore(); }
+  g.lineWidth = 1.5*px; g.strokeStyle = cO; g.beginPath(); path(q); g.stroke();
+  if (inner){ g.strokeStyle = cI; g.beginPath(); path(inner); g.stroke(); }
+  const dot = (p, col, r, active) => {
+    g.fillStyle = col; g.beginPath(); g.arc(p.x, p.y, (active ? r*1.3 : r)*px, 0, Math.PI*2); g.fill();
+    g.strokeStyle = "#fff"; g.lineWidth = 2*px; g.stroke();
+  };
+  q.forEach((p, i) => dot(p, cO, 7, cdrag?.outer && cdrag.i === i));
+  inner?.forEach((p, i) => dot(p, cI, 5.5, cdrag && !cdrag.outer && cdrag.i === i));
+  if (inner) centeringBadge(g, px, (q[0].x + q[1].x)/2, Math.max(V.vy + 2*px, Math.min(q[0].y, q[1].y) - 30*px));
+  if (cdrag) drawLoupe(g, cdrag.outer ? q[cdrag.i] : inner[cdrag.i], dpr, k, V, cdrag.outer ? cO : cI);
+}
+// Magnified view of the dot being dragged, in the corner of the view away from it.
+function drawLoupe(g, p, dpr, k, V, col){
+  const R = 60, zoom = 4, wCss = V.vw*k, hCss = V.vh*k, x = (p.x - V.vx)*k, y = (p.y - V.vy)*k;
+  const cx = x < wCss/2 ? wCss - R - 10 : R + 10, cy = y < hCss/2 ? hCss - R - 10 : R + 10;
+  const span = 2*R / (k*zoom);
+  g.save(); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.beginPath(); g.arc(cx, cy, R, 0, Math.PI*2); g.clip();
+  g.fillStyle = "#000"; g.fillRect(cx - R, cy - R, 2*R, 2*R);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(S.src, p.x - span/2, p.y - span/2, span, span, cx - R, cy - R, 2*R, 2*R);
+  g.strokeStyle = col; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(cx - R, cy); g.lineTo(cx - 6, cy); g.moveTo(cx + 6, cy); g.lineTo(cx + R, cy);
+  g.moveTo(cx, cy - R); g.lineTo(cx, cy - 6); g.moveTo(cx, cy + 6); g.lineTo(cx, cy + R); g.stroke();
+  g.restore();
+  g.save(); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.strokeStyle = "#fff"; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI*2); g.stroke();
+  g.strokeStyle = col; g.lineWidth = 1.5; g.stroke(); g.restore();
 }
 function drawCorners(){
   const A = S.an; if (!A) return;
@@ -1310,7 +1532,7 @@ function drawCorners(){
     const fx = key[1] === "l" ? 0.3 : 0.7, fy = key[0] === "t" ? 0.3 : 0.7;
     g.clearRect(0, 0, cv.width, cv.height);
     g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
-    g.drawImage(S.src, cx - fx*size, cy - fy*size, size, size, 0, 0, cv.width, cv.height);
+    g.drawImage(aimg(), cx - fx*size, cy - fy*size, size, size, 0, 0, cv.width, cv.height);
     const gr = A.corners ? A.corners[key].g : null;
     cap.textContent = gr == null ? "n/a" : String(gr);
     cap.className = sevClass(gr);
@@ -1318,6 +1540,7 @@ function drawCorners(){
   });
 }
 function toWork(e){ const r = els.view.getBoundingClientRect(); return {x:(e.clientX - r.left)/viewK, y:(e.clientY - r.top)/viewK}; }
+function toShot(e){ const r = els.view.getBoundingClientRect(); return {x: cview.vx + (e.clientX - r.left)/viewK, y: cview.vy + (e.clientY - r.top)/viewK}; }
 function nearestGuide(p){
   const Gd = S.guides, tol = 14/viewK, pad = 24/viewK;
   let best = null, bd = Infinity;
@@ -1325,14 +1548,37 @@ function nearestGuide(p){
   for (const key of ["oT","iT","iB","oB"]){ if (p.x < Gd.oL - pad || p.x > Gd.oR + pad) continue; const d = Math.abs(p.y - Gd[key]); if (d < bd){ bd = d; best = key; } }
   return bd <= tol ? best : null;
 }
+function nearestDot(p){
+  const tol = 22/viewK; let best = null, bd = Infinity;
+  S.quad.forEach((q, i) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd){ bd = d; best = {outer:true, i, dx:q.x - p.x, dy:q.y - p.y}; } });
+  innerQuad().forEach((q, i) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd){ bd = d; best = {outer:false, i, dx:q.x - p.x, dy:q.y - p.y}; } });
+  return bd <= tol ? best : null;
+}
+const quadMode = () => S.guideMode === "corners" && S.flat && S.quad && cview;
 els.view.addEventListener("pointerdown", (e) => {
   if (!S.an) return;
+  if (quadMode()){
+    const d = nearestDot(toShot(e)); if (!d) return;
+    cdrag = d; els.view.setPointerCapture(e.pointerId); e.preventDefault(); scheduleDraw(); return;
+  }
   const k = nearestGuide(toWork(e));
   if (!k) return;
   drag = {k}; els.view.setPointerCapture(e.pointerId); e.preventDefault(); scheduleDraw();
 });
 els.view.addEventListener("pointermove", (e) => {
   if (!S.an) return;
+  if (quadMode()){
+    const p = toShot(e);
+    if (!cdrag){ els.view.style.cursor = nearestDot(p) ? "grab" : "default"; return; }
+    const x = p.x + cdrag.dx, y = p.y + cdrag.dy;
+    if (cdrag.outer){ S.quad[cdrag.i] = {x: clamp(x, 0, S.srcW), y: clamp(y, 0, S.srcH)}; scheduleDraw(); return; }
+    const F = S.flat, A = S.an, Gd = S.guides, t = applyH(F.Hinv, x, y);
+    const wx = (t.x + F.m - A.offX)*A.sc, wy = (t.y + F.m - A.offY)*A.sc;
+    const setX = (key) => { Gd[key] = key === "iL" ? clamp(wx, Gd.oL + 1, Gd.iR - 4) : clamp(wx, Gd.iL + 4, Gd.oR - 1); };
+    const setY = (key) => { Gd[key] = key === "iT" ? clamp(wy, Gd.oT + 1, Gd.iB - 4) : clamp(wy, Gd.iT + 4, Gd.oB - 1); };
+    setX(cdrag.i === 0 || cdrag.i === 3 ? "iL" : "iR"); setY(cdrag.i < 2 ? "iT" : "iB");
+    S.guidesEdited = true; scheduleDraw(); update(); return;
+  }
   const p = toWork(e);
   if (!drag){ const k = nearestGuide(p); els.view.style.cursor = k ? (k.endsWith("L") || k.endsWith("R") ? "ew-resize" : "ns-resize") : "default"; return; }
   const Gd = S.guides, m = 1;
@@ -1343,7 +1589,10 @@ els.view.addEventListener("pointermove", (e) => {
   S.guidesEdited = true;
   scheduleDraw(); update();
 });
-const endDrag = () => { if (drag){ drag = null; scheduleDraw(); } };
+const endDrag = () => {
+  if (cdrag){ const outer = cdrag.outer; cdrag = null; if (outer) applyQuad(); else scheduleDraw(); }
+  if (drag){ drag = null; scheduleDraw(); }
+};
 els.view.addEventListener("pointerup", endDrag);
 els.view.addEventListener("pointercancel", endDrag);
 window.addEventListener("resize", scheduleDraw);
@@ -1351,12 +1600,38 @@ if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEven
 new MutationObserver(scheduleDraw).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 
 /* ===================== Loading images ===================== */
-function runAnalysis(){
-  S.an = analyzeImage(S.src, S.srcW, S.srcH, S.tightForce);
-  S.guides = {...S.an.guides0}; S.guidesEdited = false;
-  els.tightChk.checked = S.an.tight;
-  els.timing.textContent = `Scanned in ${Math.round(S.an.ms)} ms`;
+function useAnalysis(an){
+  S.an = an; S.guides = {...an.guides0}; S.guidesEdited = false;
+  els.timing.textContent = `Scanned in ${Math.round(an.ms)} ms` + (S.flat ? " · flattened from 4 corners" : "");
+  els.unflat.hidden = !S.flat;
   drawCorners(); scheduleDraw(); update();
+}
+function runAnalysis(){
+  S.anOrig = analyzeImage(S.src, S.srcW, S.srcH, {forceTight: S.tightForce});
+  els.tightChk.checked = S.anOrig.tight;
+  S.flat = null; S.quad = null; cview = null;
+  if (S.guideMode === "corners"){ S.quad = autoQuad(); applyQuad(); if (S.flat) return; }
+  useAnalysis(S.anOrig);
+}
+function applyQuad(){
+  const t0 = performance.now(), F = flatten(S.quad);
+  if (!F){ els.timing.textContent = "Those corners don't form a card shape. Drag the pink dots onto the card's four corners."; scheduleDraw(); return; }
+  S.flat = F;
+  const an = analyzeImage(F.canvas, F.canvas.width, F.canvas.height, {box: F.box});
+  an.ms = performance.now() - t0;
+  useAnalysis(an);
+}
+function setGuideMode(m){
+  S.guideMode = m; saveSettings();
+  els.gmLines.checked = m === "lines"; els.gmCorners.checked = m === "corners";
+  els.helpLines.hidden = m !== "lines"; els.helpCorners.hidden = m !== "corners";
+  if (m === "corners" && !S.flat && S.anOrig){ S.quad = autoQuad(); cview = null; applyQuad(); }
+  else scheduleDraw();
+}
+function undoFlatten(){
+  S.flat = null; S.quad = null; cview = null;
+  setGuideMode("lines");
+  useAnalysis(S.anOrig);
 }
 function setSource(src, w, h, file, isSample){
   S.src = src; S.srcW = w; S.srcH = h; S.file = file; S.isSample = isSample; S.token++;
@@ -1392,14 +1667,27 @@ els.file.addEventListener("change", () => { const f = els.file.files[0]; if (f) 
 $("#uploadBtn").addEventListener("click", () => els.file.click());
 $("#pickBtn").addEventListener("click", () => els.file.click());
 els.tightChk.addEventListener("change", () => { S.tightForce = els.tightChk.checked; runAnalysis(); });
-$("#resetGuides").addEventListener("click", () => { if (!S.an) return; S.guides = {...S.an.guides0}; S.guidesEdited = false; scheduleDraw(); update(); });
+$("#resetGuides").addEventListener("click", () => {
+  if (!S.an) return;
+  if (S.guideMode === "corners" && S.anOrig){ S.quad = autoQuad(); cview = null; applyQuad(); return; }
+  S.guides = {...S.an.guides0}; S.guidesEdited = false; scheduleDraw(); update();
+});
+els.gmLines.addEventListener("change", () => setGuideMode("lines"));
+els.gmCorners.addEventListener("change", () => setGuideMode("corners"));
+els.unflat.addEventListener("click", undoFlatten);
 
 /* ===================== Card picker ===================== */
 let listIdx = 0, listItems = [];
+// Every word must appear; exact keyword hits rank first, so "88 fleer" finds 1988-89 Fleer before 1987-88.
 function matchCards(q){
   const toks = q.toLowerCase().replace(/[#.,-]/g, " ").split(/\s+/).filter(Boolean);
   if (!toks.length) return CARDS;
-  return CARDS.filter(c => { const hay = (c.keys + " " + c.name.toLowerCase()).replace(/[#.,-]/g, " "); return toks.every(t => hay.includes(t)); });
+  return CARDS.map((c, i) => {
+    const keys = c.keys.split(" "), hay = (c.keys + " " + c.name.toLowerCase()).replace(/[#.,-]/g, " ");
+    let score = 0;
+    for (const t of toks){ if (keys.includes(t)) score += 3; else if (hay.includes(t)) score += 1; else return null; }
+    return {c, score, i};
+  }).filter(Boolean).sort((a, b) => b.score - a.score || a.i - b.i).map(r => r.c);
 }
 function openList(){
   listItems = matchCards(els.q.value);
@@ -1411,7 +1699,7 @@ function openList(){
     const t = document.createElement("span"); t.className = "lt"; t.textContent = c.name;
     const sm = document.createElement("small"); sm.textContent = c.tag + " · " + c.rarity; t.append(sm);
     const p = document.createElement("span"); p.className = "lp";
-    const l = priceList(c); p.textContent = `10: ${l[9] != null ? usd(l[9]) : "n/a"} · 9: ${usd(l[8])}`;
+    const l = priceList(c).g; p.textContent = `10: ${l[9] != null ? usd(l[9]) : "n/a"} · 9: ${usd(l[8])}`;
     li.append(t, p);
     li.addEventListener("mousedown", (e) => { e.preventDefault(); pickCard(c.id); });
     els.qList.append(li);
@@ -1438,7 +1726,7 @@ els.q.addEventListener("keydown", (e) => {
 });
 
 /* ===================== Inputs ===================== */
-for (const g of [10,9,8.5,8,7.5,7,6.5,6,5.5,5,4.5,4,3.5,3,2.5,2,1.5,1]){ const o = document.createElement("option"); o.value = g; o.textContent = `${g} ${GNAME[g]}`; els.slabGrade.append(o); }
+for (const g of [10,9.5,9,8.5,8,7.5,7,6.5,6,5.5,5,4.5,4,3.5,3,2.5,2,1.5,1]){ const o = document.createElement("option"); o.value = g; o.textContent = `${g} ${GNAME[g]}`; els.slabGrade.append(o); }
 els.slabGrade.value = S.slabGrade;
 document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", () => { setMode(r.value); }));
 function setMode(m){ S.mode = m; $("#modeRaw").checked = m === "raw"; $("#modeSlab").checked = m === "slab"; els.slabCtl.hidden = m !== "slab"; update(); }
@@ -1458,18 +1746,30 @@ for (const [k, sl] of [["corners", els.sCorners], ["edges", els.sEdges], ["surfa
 $("#resetSubs").addEventListener("click", () => { S.manual = {}; update(); });
 els.pBody.addEventListener("input", (e) => {
   const inp = e.target.closest("input[data-g]"); if (!inp) return;
-  const g = +inp.dataset.g, v = num(inp.value), o = S.prices[S.cardId] || (S.prices[S.cardId] = {});
+  const g = inp.dataset.g, v = num(inp.value), o = S.prices[S.cardId] || (S.prices[S.cardId] = {});
   if (v == null) delete o[g]; else o[g] = v;
   store.set("jca.prices", S.prices); update();
+});
+$("#scpApply").addEventListener("click", () => {
+  const got = parseScp($("#scpPaste").value), keys = Object.keys(got), msg = $("#scpMsg");
+  if (!keys.length){ msg.textContent = "No prices found. Copy the whole Full Price Guide table, from Ungraded down to PSA 10."; return; }
+  const o = S.prices[S.cardId] = {...(S.prices[S.cardId] || {}), ...got};
+  o._src = `Your SportsCardsPro paste, ${new Date().toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"})}`;
+  store.set("jca.prices", S.prices);
+  $("#scpPaste").value = ""; els.pBody.dataset.card = "";
+  msg.textContent = `Updated ${keys.length} price${keys.length === 1 ? "" : "s"} for ${byId[S.cardId].name}.`;
+  update();
 });
 $("#resetPrices").addEventListener("click", () => { delete S.prices[S.cardId]; store.set("jca.prices", S.prices); els.pBody.dataset.card = ""; update(); });
 
 document.addEventListener("keydown", (e) => {
-  const t = e.target, typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+  const t = e.target, typing = t && (t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable ||
+    (t.tagName === "INPUT" && !["radio", "checkbox", "button", "range", "file"].includes(t.type)));
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === "/"){ e.preventDefault(); els.q.focus(); els.q.select(); }
   else if (e.key === "a" || e.key === "A"){ e.preventDefault(); askClaude(); }
   else if (e.key === "u" || e.key === "U"){ e.preventDefault(); els.file.click(); }
+  else if (e.key === "c" || e.key === "C"){ e.preventDefault(); setGuideMode(S.guideMode === "corners" ? "lines" : "corners"); }
 });
 
 /* ===================== Claude check ===================== */
@@ -1512,10 +1812,10 @@ function aiError(e){
   }
 }
 function toBlob(canvas, type, q){ return new Promise((res) => canvas.toBlob((b) => res(b), type, q)); }
-function drawTo(maxSide, sx, sy, sw, sh){
+function drawTo(img, maxSide, sx, sy, sw, sh){
   const k = Math.min(1, maxSide / Math.max(sw, sh)), c = document.createElement("canvas");
   c.width = Math.max(1, Math.round(sw*k)); c.height = Math.max(1, Math.round(sh*k));
-  c.getContext("2d").drawImage(S.src, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
   return c;
 }
 async function buildImages(){
@@ -1523,18 +1823,19 @@ async function buildImages(){
   if (max >= 2 && S.an && !S.an.tight){
     const Gd = S.guides, sc = S.an.sc, m = 0.04*S.an.cardW;
     const x = Math.max(0, S.an.offX + (Gd.oL - m)/sc), y = Math.max(0, S.an.offY + (Gd.oT - m)/sc);
-    const w = Math.min(S.srcW - x, (Gd.oR - Gd.oL + 2*m)/sc), h = Math.min(S.srcH - y, (Gd.oB - Gd.oT + 2*m)/sc);
-    const crop = await toBlob(drawTo(1600, x, y, w, h), "image/jpeg", 0.92);
+    const img = aimg(), iw = S.flat ? img.width : S.srcW, ih = S.flat ? img.height : S.srcH;
+    const w = Math.min(iw - x, (Gd.oR - Gd.oL + 2*m)/sc), h = Math.min(ih - y, (Gd.oB - Gd.oT + 2*m)/sc);
+    const crop = await toBlob(drawTo(img, 1600, x, y, w, h), "image/jpeg", 0.92);
     if (crop) out.push(crop);
   }
   let full = S.file;
-  if (!full || !types.includes(full.type) || (imgLimits?.maxInputBytes && full.size > imgLimits.maxInputBytes)) full = await toBlob(drawTo(2000, 0, 0, S.srcW, S.srcH), "image/jpeg", 0.9);
+  if (!full || !types.includes(full.type) || (imgLimits?.maxInputBytes && full.size > imgLimits.maxInputBytes)) full = await toBlob(drawTo(S.src, 2000, 0, 0, S.srcW, S.srcH), "image/jpeg", 0.9);
   if (full) out.push(full);
   return out;
 }
 function buildPrompt(nImages){
   const list = CARDS.filter(c => c.id !== "custom").map(c => `- ${c.id}: ${c.name} (${c.tag})`).join("\n");
-  const imgs = nImages > 1 ? "Image 1 is the card as cropped by an automatic detector (the crop can be wrong). Image 2 is the full screenshot." : "The image is the full screenshot.";
+  const imgs = nImages > 1 ? "Image 1 is the card as cropped by an automatic detector (the crop can be wrong; it may be flattened to correct for camera angle). Image 2 is the full screenshot." : "The image is the full screenshot.";
   return `You are helping a collector bid on a Michael Jordan basketball card. The images come from a screenshot of an online listing. ${imgs}
 
 1. Identify the card. Set card_id to one of these ids, or "other" if none match:
@@ -1592,7 +1893,7 @@ function applyAI(o, secs){
   S.ai = ai;
   if (ai.cardId && ai.idConf >= 0.5 && !S.userPickedCard) S.cardId = ai.cardId;
   if (ai.slabbed && ai.slabGrade != null){
-    const sg = ai.slabGrade >= 9 ? Math.floor(ai.slabGrade) : ai.slabGrade;
+    const sg = ai.slabGrade >= 9 && ai.slabGrade < 10 ? (ai.slabGrade >= 9.5 && ai.grader && ai.grader !== "PSA" ? 9.5 : 9) : ai.slabGrade;
     S.slabGrade = sg; els.slabGrade.value = sg; S.qual = ai.qualifier; els.qual.value = ai.qualifier;
     setMode("slab");
   } else if (!ai.slabbed && S.mode === "slab") setMode("raw");
@@ -1627,6 +1928,8 @@ function applyAI(o, secs){
 /* ===================== Boot ===================== */
 renderStandards();
 setMode("raw");
+els.gmLines.checked = S.guideMode === "lines"; els.gmCorners.checked = S.guideMode === "corners";
+els.helpLines.hidden = S.guideMode !== "lines"; els.helpCorners.hidden = S.guideMode !== "corners";
 const sample = makeSample();
 setSource(sample, sample.width, sample.height, null, true);
 })();

@@ -21,14 +21,24 @@ The Claude check only works when the page is opened on claude.ai. In the exe, pi
 | `Ctrl`/`⌘` + `V` | Paste a screenshot (or drag and drop an image) |
 | `/` | Search for the card (`86 fleer`, `star 101`, `finest refractor`) |
 | `A` | Ask Claude to check the screenshot (claude.ai only) |
+| `C` | Switch between Lines and 4 corners |
 | `U` | Upload an image |
 
 1. Paste the screenshot. The scan takes well under a second.
-2. Check the guides. Pink lines should sit on the card edge, and blue lines where the border meets the frame. Drag any line that's off.
+2. Check the guides. Pink lines should sit on the card edge, and blue lines where the border meets the frame. Drag any line that's off. If the photo was taken at an angle, switch to **4 corners** (below).
 3. Pick the card. If you open the page on claude.ai, Claude names it for you, reads a slab label if there is one, and fills in the current bid.
 4. Type the current bid. The verdict tells you how much room you have, or how far over your max it is.
 
 Switch to **Already graded** for slabbed cards. A qualifier (OC, ST, PD and so on) values the card about two grades lower.
+
+## 4 corners: photos taken at an angle
+
+When the card isn't square to the camera, its edges aren't parallel in the photo, and border widths measured straight across come out wrong. The scan flags this. Switch the guides to **4 corners** and you get draggable dots instead of lines:
+
+- **Pink dots** go on the card's four corners. When you let go, the app solves the perspective transform from those corners and warps the card flat to a true 2.5 x 3.5 rectangle. Corners, edges and centering are then measured on the flattened card.
+- **Blue dots** mark the inner border, drawn back onto the photo in perspective. Drag one if the scan missed the border. Centering updates as you drag.
+
+A magnifier shows the area under the dot while you drag. **Undo flatten** goes back to the original photo. Switching back to Lines after flattening shows the flattened card with the usual straight guides.
 
 ## How the grade estimate works
 
@@ -43,7 +53,11 @@ PSA grades by the weakest point, so the overall grade leans on the lowest subgra
 
 ## Price data
 
-Built-in prices are approximate comps as of October 2026, drawn from public sales (Goldin, Heritage, Card Ladder, PSA auction prices and price indexes). Each card shows its sources and a confidence level. Thin markets such as 1984-85 Star are marked Low. Edit any price in **Price data for this card**; your edits are saved in your browser. **Other Jordan card** takes your own comps for anything not on the list.
+Prices come from the [SportsCardsPro](https://www.sportscardspro.com/) price guide (October 2026 snapshot) and are built into the page, so it never goes online to price a card. For each card it stores Ungraded, Grade 1 through 9, PSA 10 and BGS/SGC 9.5. Some cards are missing grades on SportsCardsPro. Those grades are estimated from the grades next to them, using ratios from cards that list every grade, and show an **est.** tag. The 1984-85 Star Court Kings isn't on SportsCardsPro, so its prices are rough estimates and are labeled that way.
+
+To refresh a card's prices, open it on SportsCardsPro, copy the Full Price Guide table, and paste it into **Price data for this card → Update from SportsCardsPro**. The page reads the prices out of the pasted text and saves them on your device. Nothing is sent anywhere. You can also type any price by hand. **Other Jordan card** works the same way for cards not on the list.
+
+Thin markets such as 1984-85 Star and the refractors are marked Low confidence. SportsCardsPro's low grades for those cards are uneven because few sell.
 
 ## Limits
 
