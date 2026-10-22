@@ -1,0 +1,1633 @@
+<title>Jordan Card Appraiser</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: the card under the loupe on the left, the bid sheet on the right; stacks to one column on phones */
+:root{
+  --paper:#EDEFF4;
+  --panel:#FFFFFF;
+  --sunk:#F4F5F9;
+  --ink:#121726;
+  --muted:#596177;
+  --line:#D6DAE4;
+  --red:#C8102E;          /* '86 Fleer frame red: brand mark and grade numeral */
+  --blue:#1F3F94;         /* '86 Fleer frame blue: controls and data */
+  --blue-soft:#E2E8F7;
+  --on-blue:#FFFFFF;
+  --good:#11733F; --good-soft:#E0F2E7;
+  --warn:#8F5400; --warn-soft:#FAEFD9;
+  --bad:#B3261A;  --bad-soft:#FAE3E0;
+  --guide-outer:#E0115F;
+  --guide-inner:#0A7CFF;
+  --display:"Big Shoulders Display","Big Shoulders","Oswald","Arial Narrow",Impact,sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0B0F19; --panel:#131A29; --sunk:#0F1521; --ink:#E8EBF3; --muted:#98A1B7; --line:#263049;
+    --red:#FF5A6D; --blue:#91AFFF; --blue-soft:#1A2543; --on-blue:#0B0F19;
+    --good:#4BD08C; --good-soft:#122E1F; --warn:#F2AF4C; --warn-soft:#33260F; --bad:#FF6F62; --bad-soft:#3A1713;
+    --guide-outer:#FF4D8D; --guide-inner:#4FA9FF;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0B0F19; --panel:#131A29; --sunk:#0F1521; --ink:#E8EBF3; --muted:#98A1B7; --line:#263049;
+  --red:#FF5A6D; --blue:#91AFFF; --blue-soft:#1A2543; --on-blue:#0B0F19;
+  --good:#4BD08C; --good-soft:#122E1F; --warn:#F2AF4C; --warn-soft:#33260F; --bad:#FF6F62; --bad-soft:#3A1713;
+  --guide-outer:#FF4D8D; --guide-inner:#4FA9FF;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--paper)}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px;
+  -webkit-font-smoothing:antialiased}
+table{font-size:inherit;color:inherit}
+.wrap{max-width:1380px;margin:0 auto}
+h1,h2{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;text-transform:uppercase}
+h1{font-size:30px;line-height:1;letter-spacing:.01em}
+h2{font-size:18px;letter-spacing:.05em}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* header */
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;padding-block:16px 14px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{flex:none;width:30px;height:42px;border-radius:3px;background:var(--panel);border:1px solid var(--line);
+  box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 6px var(--red),inset 0 0 0 8px var(--panel),inset 0 0 0 11px var(--blue)}
+.tagline{margin:3px 0 0;color:var(--muted);font-size:13.5px}
+.keys{display:flex;gap:6px 14px;flex-wrap:wrap;color:var(--muted);font-size:12.5px}
+kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;background:var(--panel);color:var(--ink);margin-right:2px}
+
+/* layout */
+.app{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:20px;margin-top:18px;align-items:start}
+@media (max-width:980px){
+  .app{grid-template-columns:minmax(0,1fr);row-gap:14px}
+  .app>.col{display:contents}
+  .o1{order:1}.o2{order:2}.o3{order:3}.o4{order:4}.o5{order:5}.o6{order:6}.o7{order:7}.o8{order:8}.o9{order:9}.o10{order:10}.o11{order:11}.o12{order:12}
+}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.lab{font:600 11.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+
+/* loupe */
+.stage{position:relative;background:var(--sunk);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:300px;padding:10px;overflow:hidden}
+.stage.drop{outline:2px dashed var(--blue);outline-offset:-8px}
+#view{display:block;max-width:100%;touch-action:none}
+.stage-note{align-self:stretch;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13.5px}
+.sev-good{color:var(--good)!important}.sev-warn{color:var(--warn)!important}.sev-bad{color:var(--bad)!important}
+.stage-note strong{color:var(--red)}
+.stage-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.stage-bar .grow{flex:1 1 auto}
+.help{margin:0;font-size:13px;color:var(--muted)}
+.swatch{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.corners{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.corner{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.corner canvas{display:block;width:100%;max-width:100%;aspect-ratio:1;border-radius:5px;background:var(--sunk)}
+.corner figcaption{display:flex;justify-content:space-between;gap:4px;font-size:12px;color:var(--muted)}
+.corner b{font-family:var(--mono);font-weight:600;color:var(--ink)}
+.meas{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px 16px;margin:0;font-size:13.5px}
+.meas dt{color:var(--muted)}
+.meas dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.flags{display:flex;flex-direction:column;gap:6px;margin:12px 0 0;padding:0;list-style:none;font-size:13.5px}
+.flags li{padding:7px 10px;border-radius:6px;background:var(--sunk)}
+.flags li.warn{background:var(--warn-soft);color:var(--warn)}
+.flags li.bad{background:var(--bad-soft);color:var(--bad)}
+
+/* controls */
+.btn{font:600 14px/1 var(--body);padding:9px 14px;border-radius:7px;border:1px solid var(--blue);background:var(--blue);color:var(--on-blue);cursor:pointer;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--blue);border-color:var(--line)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn kbd{background:transparent;color:inherit;border-color:currentColor;opacity:.75;margin:0 0 0 6px}
+.link{background:none;border:0;padding:0;color:var(--blue);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer}
+.chk input{accent-color:var(--blue);width:16px;height:16px;margin:0}
+select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 8px;max-width:100%}
+.chip{display:inline-block;font:600 11px/1 var(--body);letter-spacing:.05em;text-transform:uppercase;padding:5px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap;border:1px solid var(--line)}
+.chip.blue{background:var(--blue-soft);color:var(--blue);border-color:transparent}
+.chip.red{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.chip.good{background:var(--good-soft);color:var(--good);border-color:transparent}
+
+/* card picker */
+.combo{position:relative;margin-top:6px}
+#q{width:100%;font:500 16px var(--body);padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+#q:focus{border-color:var(--blue);outline:none}
+#qList{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 4px);margin:0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 14px 30px rgb(0 0 0 / .2);max-height:360px;overflow:auto}
+#qList li{padding:8px 10px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+#qList li[aria-selected="true"]{background:var(--blue-soft)}
+#qList .lp{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+#qList .lt{min-width:0}
+#qList .lt small{display:block;color:var(--muted);font-size:12px}
+.cardname{font:800 24px/1.05 var(--display);text-transform:uppercase;letter-spacing:.01em;margin-top:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.note{font-size:13.5px;color:var(--muted);margin:8px 0 0}
+.note b{color:var(--ink);font-weight:600}
+.warnline{margin:10px 0 0;padding:8px 10px;border-radius:6px;background:var(--warn-soft);color:var(--warn);font-size:13.5px}
+
+/* value + bid */
+.mode{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;padding:3px;background:var(--sunk)}
+.seg label{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg span{display:block;padding:7px 12px;border-radius:6px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg input:checked+span{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0 / .14)}
+.seg input:focus-visible+span{outline:2px solid var(--blue)}
+.slabctl{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+.figures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+@media (max-width:460px){.figures{grid-template-columns:minmax(0,1fr)}}
+.fig{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-radius:8px;background:var(--sunk);min-width:0}
+.fig.bid{background:var(--blue-soft)}
+.big{font:800 42px/1.02 var(--display);letter-spacing:.01em;overflow-wrap:anywhere}
+.fig.bid .big{color:var(--blue)}
+.small{font-size:13px;color:var(--muted)}
+.verdict{margin-top:10px;padding:9px 12px;border-radius:7px;font-weight:600;font-size:14px;background:var(--sunk);color:var(--muted)}
+.verdict.good{background:var(--good-soft);color:var(--good)}
+.verdict.bad{background:var(--bad-soft);color:var(--bad)}
+.bidgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;margin-top:14px}
+@media (max-width:560px){.bidgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bidgrid label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);min-width:0}
+.bidgrid .wide{grid-column:1/-1}
+.in{display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:6px;padding:0 8px;background:var(--panel);color:var(--muted);font-family:var(--mono);font-size:13px}
+.in:focus-within{border-color:var(--blue)}
+.in input{border:0;outline:0;background:transparent;color:var(--ink);font:500 15px/1 var(--mono);padding:8px 0;width:100%;min-width:0}
+.in input::placeholder{color:var(--muted);opacity:.7}
+
+/* grade */
+.gradehead{display:flex;align-items:center;gap:16px}
+.numeral{font:800 68px/.9 var(--display);color:var(--red);min-width:1.15em;text-align:center}
+.gname{font:800 23px/1.05 var(--display);text-transform:uppercase;letter-spacing:.02em}
+.gsub{color:var(--muted);font-size:13.5px;margin-top:4px}
+.dist{display:flex;flex-direction:column;gap:5px;margin-top:14px}
+.drow{display:grid;grid-template-columns:78px minmax(0,1fr) 42px 96px;align-items:center;gap:10px;font-size:13px}
+.dbar{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
+.dbar i{display:block;height:100%;background:var(--blue);border-radius:5px}
+.drow.top{font-weight:600}
+.drow.top .dbar i{background:var(--red)}
+.dp,.dv{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:460px){.drow{grid-template-columns:62px minmax(0,1fr) 38px 80px;gap:6px}}
+.subs{display:flex;flex-direction:column;gap:10px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.subrow{display:grid;grid-template-columns:84px minmax(0,1fr) 38px 118px;align-items:center;gap:10px}
+.subrow label,.subrow .sl{font-weight:600}
+.subrow output{font:600 15px var(--mono);text-align:right}
+.subrow .chip{justify-self:end}
+.subrow .cval{font-family:var(--mono);font-size:14px}
+@media (max-width:460px){.subrow{grid-template-columns:72px minmax(0,1fr) 34px}.subrow .chip{grid-column:2/-1;justify-self:start}}
+input[type=range]{width:100%;accent-color:var(--blue);margin:0}
+
+/* claude */
+.aihead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.airow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:10px}
+.finds{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.finds li{padding:7px 10px;border-radius:6px;background:var(--sunk)}
+.finds li b{font-weight:600}
+.spin{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;vertical-align:-1px;margin-right:6px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+
+/* details */
+details.panel>summary{cursor:pointer;font:800 17px var(--display);text-transform:uppercase;letter-spacing:.05em}
+details.panel[open]>summary{margin-bottom:10px}
+.ptable{width:100%;border-collapse:collapse}
+.ptable th{text-align:left;font-weight:600;padding:4px 8px 4px 0;font-size:13px;white-space:nowrap}
+.ptable td{padding:3px 0}
+.ptable input{width:100%;font:500 14px var(--mono);border:1px solid var(--line);border-radius:5px;padding:5px 7px;background:var(--panel);color:var(--ink)}
+.prow{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:13.5px}
+.prow a{color:var(--blue)}
+.std{overflow-x:auto}
+.std table{border-collapse:collapse;width:100%;min-width:560px;font-size:13px}
+.std th,.std td{text-align:left;padding:7px 8px;border-top:1px solid var(--line);vertical-align:top}
+.std th{white-space:nowrap}
+.std td.c{font-family:var(--mono);white-space:nowrap}
+.fine{font-size:12.5px;color:var(--muted);margin:0;max-width:70ch}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <div>
+      <h1>Jordan Card Appraiser</h1>
+      <p class="tagline">PSA-scale grade and bid ceiling from a listing screenshot</p>
+    </div>
+  </div>
+  <div class="keys" aria-label="Keyboard shortcuts">
+    <span><kbd>Ctrl</kbd><kbd>V</kbd> paste screenshot</span>
+    <span><kbd>/</kbd> find card</span>
+    <span><kbd>A</kbd> ask Claude</span>
+    <span><kbd>U</kbd> upload</span>
+  </div>
+</header>
+
+<main class="app">
+  <section class="col" aria-label="Screenshot analysis">
+    <div class="stage o1" id="stage">
+      <div class="stage-note" id="stageNote">
+        <strong>Example card.</strong> This is a made-up card so you can see how it works. Paste a listing screenshot with <kbd>Ctrl</kbd><kbd>V</kbd>, drop an image here, or <button type="button" class="link" id="pickBtn">choose a file</button>.
+      </div>
+      <canvas id="view" aria-label="Screenshot with centering guides"></canvas>
+    </div>
+    <div class="stage-bar o2">
+      <span class="mono small grow" id="timing"></span>
+      <label class="chk"><input type="checkbox" id="tightChk"> Image is cropped to the card edge</label>
+      <button type="button" class="btn ghost" id="resetGuides">Reset guides</button>
+      <button type="button" class="btn ghost" id="uploadBtn">Upload</button>
+      <input type="file" id="file" accept="image/*" hidden>
+    </div>
+    <p class="help o3"><span class="swatch" style="background:var(--guide-outer)"></span>Pink lines sit on the card edge. <span class="swatch" style="background:var(--guide-inner)"></span>Blue lines sit where the border meets the frame. Drag any line to correct it; centering updates as you drag.</p>
+    <div class="corners o8" id="corners">
+      <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Top left</span><b>–</b></figcaption></figure>
+      <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Top right</span><b>–</b></figcaption></figure>
+      <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Bottom left</span><b>–</b></figcaption></figure>
+      <figure class="corner"><canvas width="180" height="180"></canvas><figcaption><span>Bottom right</span><b>–</b></figcaption></figure>
+    </div>
+    <div class="panel o9">
+      <h2>What the scan found</h2>
+      <dl class="meas" id="meas" style="margin-top:10px"></dl>
+      <ul class="flags" id="flags"></ul>
+    </div>
+  </section>
+
+  <section class="col" aria-label="Card, value and bid">
+    <div class="panel o4">
+      <label for="q" class="lab">Card</label>
+      <div class="combo">
+        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search: 86 fleer, star 101, finest refractor" role="combobox" aria-expanded="false" aria-controls="qList" aria-autocomplete="list">
+        <ul id="qList" role="listbox" aria-label="Cards" hidden></ul>
+      </div>
+      <div class="cardname" id="cardName"></div>
+      <div class="chips" id="cardChips"></div>
+      <p class="note" id="cardRare"></p>
+      <p class="note" id="cardWatch"></p>
+      <p class="warnline" id="cardFake" hidden></p>
+    </div>
+
+    <div class="panel o5">
+      <div class="mode">
+        <div class="seg" role="radiogroup" aria-label="Card condition">
+          <label><input type="radio" name="mode" value="raw" id="modeRaw" checked><span>Raw card</span></label>
+          <label><input type="radio" name="mode" value="slab" id="modeSlab"><span>Already graded</span></label>
+        </div>
+        <span class="slabctl" id="slabCtl" hidden>
+          <label for="slabGrade" class="lab">PSA</label>
+          <select id="slabGrade"></select>
+          <select id="qual" aria-label="Qualifier">
+            <option value="">No qualifier</option>
+            <option value="OC">OC (off-center)</option>
+            <option value="ST">ST (stain)</option>
+            <option value="PD">PD (print defect)</option>
+            <option value="OF">OF (out of focus)</option>
+            <option value="MK">MK (marks)</option>
+            <option value="MC">MC (miscut)</option>
+          </select>
+        </span>
+      </div>
+      <div class="figures">
+        <div class="fig"><span class="lab" id="vMainLab">Estimated value</span><span class="big" id="vMain">$0</span><span class="small" id="vSub"></span></div>
+        <div class="fig bid"><span class="lab">Max bid</span><span class="big" id="vMax">$0</span><span class="small" id="vMaxSub"></span></div>
+      </div>
+      <div class="verdict" id="verdict"></div>
+      <div class="bidgrid">
+        <label for="bCur">Current bid<span class="in">$<input id="bCur" inputmode="decimal" placeholder="0"></span></label>
+        <label for="bBp">Buyer's premium<span class="in"><input id="bBp" inputmode="decimal">%</span></label>
+        <label for="bTax">Sales tax<span class="in"><input id="bTax" inputmode="decimal">%</span></label>
+        <label for="bShip">Shipping + insurance<span class="in">$<input id="bShip" inputmode="decimal"></span></label>
+        <label for="bFee" id="bFeeLab">PSA grading fee<span class="in">$<input id="bFee" inputmode="decimal" placeholder="auto"></span></label>
+        <label for="bMargin">Target margin<span class="in"><input id="bMargin" inputmode="decimal">%</span></label>
+        <label for="bBasis" class="wide">Bid against
+          <select id="bBasis">
+            <option value="cons">Conservative value (25th percentile of likely grades)</option>
+            <option value="ev">Expected value (average over likely grades)</option>
+            <option value="likely">Most likely grade only</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel o6">
+      <div class="gradehead">
+        <div class="numeral" id="gNum">–</div>
+        <div>
+          <div class="lab" id="gLab">Estimated PSA grade</div>
+          <div class="gname" id="gName"></div>
+          <div class="gsub" id="gSub"></div>
+        </div>
+      </div>
+      <div class="dist" id="dist"></div>
+      <div class="subs">
+        <div class="subrow"><span class="sl">Centering</span><span class="cval" id="cVal"></span><span></span><span class="chip" id="cChip"></span></div>
+        <div class="subrow"><label for="sCorners">Corners</label><input type="range" id="sCorners" min="1" max="10" step="0.5"><output id="oCorners" for="sCorners"></output><span class="chip" id="chCorners"></span></div>
+        <div class="subrow"><label for="sEdges">Edges</label><input type="range" id="sEdges" min="1" max="10" step="0.5"><output id="oEdges" for="sEdges"></output><span class="chip" id="chEdges"></span></div>
+        <div class="subrow"><label for="sSurface">Surface</label><input type="range" id="sSurface" min="1" max="10" step="0.5"><output id="oSurface" for="sSurface"></output><span class="chip" id="chSurface"></span></div>
+      </div>
+      <p class="note">PSA grades a card by its weakest point, and front centering sets a hard ceiling. Move a slider if you can see something the scan can't. <button type="button" class="link" id="resetSubs">Reset to measured</button></p>
+    </div>
+
+    <div class="panel o7" id="aiPanel">
+      <div class="aihead"><h2>Claude check</h2><span class="chip" id="aiState">Off</span></div>
+      <p class="note" id="aiMsg">Claude reads the screenshot to name the card, read a slab label, spot surface flaws the scan can't, and pick up the current bid.</p>
+      <div class="airow">
+        <button type="button" class="btn" id="askBtn">Ask Claude<kbd>A</kbd></button>
+        <button type="button" class="btn ghost" id="stopBtn" hidden>Stop</button>
+        <label class="chk"><input type="checkbox" id="autoAsk"> Ask on every paste</label>
+        <select id="tier" aria-label="Claude speed">
+          <option value="quick">Fast</option>
+          <option value="thorough">Thorough (slower)</option>
+        </select>
+      </div>
+      <ul class="finds" id="aiFinds"></ul>
+    </div>
+
+    <details class="panel o10" id="priceBox">
+      <summary>Price data for this card</summary>
+      <p class="note" id="priceSrc" style="margin-top:0"></p>
+      <table class="ptable" style="margin-top:8px"><tbody id="pBody"></tbody></table>
+      <div class="prow">
+        <a id="compsLink" href="https://www.ebay.com/" target="_blank" rel="noopener">Check eBay sold listings</a>
+        <button type="button" class="link" id="resetPrices">Reset to built-in prices</button>
+      </div>
+    </details>
+
+    <details class="panel o11">
+      <summary>PSA grading standards</summary>
+      <div class="std">
+        <table>
+          <thead><tr><th>Grade</th><th>Front</th><th>Back</th><th>What it allows</th></tr></thead>
+          <tbody id="stdBody"></tbody>
+        </table>
+      </div>
+      <p class="note">Centering is the share of the border on each side, larger side first. PSA tightened the PSA 10 front standard to 55/45 in 2025; older guides say 60/40. PSA also gives half grades from 1.5 to 8.5, and adds a qualifier (OC, ST, PD, OF, MK, MC) when one flaw is far worse than the rest. A qualified card usually sells closer to two grades lower.</p>
+    </details>
+
+    <p class="fine o12">Estimates only, not a PSA grade. Not affiliated with PSA. Prices are approximate comps as of October 2026 and markets move fast, so check recent sales before a big bid. A front screenshot can't show the back, gloss, light scratches or trimming.</p>
+  </section>
+</main>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ===================== PSA standards ===================== */
+const PSA = [
+  {g:10, name:"Gem Mint", front:"55/45", back:"75/25", text:"Four sharp corners, sharp focus, full original gloss, no staining. A slight printing imperfection is allowed only if it doesn't hurt eye appeal."},
+  {g:9, name:"Mint", front:"60/40", back:"90/10", text:"One minor flaw: a very slight wax stain on the back, a minor printing imperfection, or slightly off-white borders."},
+  {g:8, name:"NM-MT", front:"65/35", back:"90/10", text:"Very slight wear on one or two corners. May add a slight wax stain, a minor printing imperfection, or slightly off-white borders."},
+  {g:7, name:"Near Mint", front:"70/30", back:"90/10", text:"Slight surface wear visible on close look, slight fraying on some corners, picture slightly out of focus. Most of the gloss remains."},
+  {g:6, name:"EX-MT", front:"80/20", back:"90/10", text:"Visible surface wear or a printing defect, slight fraying on corners, very slight notching on edges, some loss of gloss."},
+  {g:5, name:"Excellent", front:"85/15", back:"90/10", text:"Minor rounding of corners, minor chipping on edges, more visible surface wear, several light scratches, loss of gloss."},
+  {g:4, name:"VG-EX", front:"85/15", back:"90/10", text:"Slightly rounded corners, modest surface wear, light scuffing or scratches. Borders may be off-white; a light crease may show."},
+  {g:3, name:"Very Good", front:"90/10", back:"90/10", text:"Some corner rounding, apparent surface and edge wear, much of the gloss gone. Possible light crease and yellowed borders."},
+  {g:2, name:"Good", front:"90/10", back:"90/10", text:"Accelerated corner rounding, obvious wear, several creases, gloss nearly gone, considerable discoloration or staining."},
+  {g:1, name:"Poor", front:"any", back:"any", text:"Heavy wear and creasing. May be missing small pieces or have major surface damage, but the card is intact."}
+];
+const GNAME = {10:"Gem Mint",9:"Mint",8.5:"NM-MT+",8:"NM-MT",7.5:"Near Mint+",7:"Near Mint",6.5:"EX-MT+",6:"EX-MT",5.5:"Excellent+",5:"Excellent",4.5:"VG-EX+",4:"VG-EX",3.5:"Very Good+",3:"Very Good",2.5:"Good+",2:"Good",1.5:"Fair",1:"Poor"};
+const CAP_FRONT = [[55,10],[60,9],[65,8],[70,7],[80,6],[85,5],[90,3]];
+function capFront(worst){ for (const [t,g] of CAP_FRONT) if (worst <= t + 1e-9) return g; return 2; }
+
+/* ===================== Card data =====================
+   p = prices in USD for PSA 1..10 (index 0 = PSA 1). null = no reliable comps. */
+const CARDS = [
+  {id:"86fleer57", name:"1986-87 Fleer #57", tag:"Rookie card", keys:"1986 86 fleer 57 rookie rc base",
+   rarity:"Key rookie", rare:"The Jordan rookie. Printed in quantity, but PSA 10s are roughly 1% of graded copies.",
+   watch:"Centering (many copies are 65/35 or worse), print snow and dots on the red and blue frame, wax stains on the back.",
+   fake:"Raw 1986 Fleer Jordans are the most counterfeited card in the hobby. Check the print rosettes and the back, or buy it slabbed.",
+   conf:"High", src:"PSA 10 sales of $396,500 to $414,800 at Goldin and Heritage in Sep and Oct 2026. PSA 9 index near $41,700.",
+   p:[2000,2600,3200,4000,5000,6500,9000,16000,42000,400000]},
+  {id:"86sticker8", name:"1986-87 Fleer Sticker #8", tag:"Rookie-year sticker", keys:"1986 86 fleer sticker 8 rookie",
+   rarity:"Key rookie", rare:"About 128 PSA 10s, 2,180 PSA 9s and 4,746 PSA 8s reported.",
+   watch:"Centering is the usual grade killer. Check for peeling or creased sticker backing.",
+   fake:"Stickers are counterfeited too. Buy slabbed or compare against a known-good copy.",
+   conf:"Medium", src:"Card Ladder sales: PSA 10 $76,899 (Jun 2026), PSA 9 $11,049 (Jul 2026), PSA 8 $3,925 (Sep 2026).",
+   p:[550,700,900,1100,1350,1700,2300,3900,10500,72000]},
+  {id:"84star101", name:"1984-85 Star #101", tag:"Extended rookie (XRC)", keys:"1984 84 star 101 xrc rookie",
+   rarity:"Low print run", rare:"Star sold these in small team-bag runs. High-grade copies are very scarce and there are no reliable PSA 10 comps.",
+   watch:"Red borders show chipping easily. Miscuts and print bleed are common.",
+   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
+   conf:"Low", src:"Thin market. Reported PSA 9 sales range from about $107,000 to over $900,000, so pull your own comps.",
+   p:[8000,10000,13000,17000,23000,32000,50000,110000,400000,null]},
+  {id:"85star117", name:"1985-86 Star #117", tag:"Second-year Star", keys:"1985 85 star 117",
+   rarity:"Low print run", rare:"Small print run. Beckett reports only a few hundred graded.",
+   watch:"Chipping on the colored border and rough factory cuts.",
+   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
+   conf:"Low", src:"Card Ladder BGS 9.5 $35,700 (Jul 2026) and BGS 8.5 near $15,500. PSA comps are sparse.",
+   p:[1200,1500,1900,2400,3000,4000,5500,9000,22000,null]},
+  {id:"84courtkings26", name:"1984-85 Star Court Kings #26", tag:"5x7 oversize", keys:"1984 84 star court kings 26 5x7 oversize",
+   rarity:"Low print run", rare:"Oversize 5x7 card from a small Star issue.",
+   watch:"The large surface shows wear and creases; corners ding easily.",
+   fake:"Star cards were reprinted and faked heavily. Only buy a PSA or BGS slab.",
+   conf:"Low", src:"Mostly asking prices (a BGS 8 listed near $15,000). Treat as rough.",
+   p:[1500,1900,2500,3100,3800,5000,7500,13000,40000,null]},
+  {id:"87fleer59", name:"1987-88 Fleer #59", tag:"Second-year Fleer", keys:"1987 87 fleer 59",
+   rarity:"Scarce in high grade", rare:"About 217 PSA 10s reported.",
+   watch:"Centering, print dots in the gray striped frame, wax stains on the back.",
+   conf:"Medium", src:"Card Ladder: PSA 10 $34,500 (Jun 2026), PSA 9 $5,170 (Aug 2026), PSA 6 $1,050 (Aug 2026).",
+   p:[350,420,520,650,800,1050,1300,1700,4600,40000]},
+  {id:"87sticker2", name:"1987-88 Fleer Sticker #2", tag:"Sticker", keys:"1987 87 fleer sticker 2",
+   rarity:"Scarce in high grade", rare:"Packed one per pack and often damaged.",
+   watch:"Centering and backing damage.",
+   conf:"Low", src:"PSA auction-price averages: PSA 10 $27,006, PSA 9 $1,830, PSA 8 $411.",
+   p:[60,75,100,125,150,190,260,410,1830,27000]},
+  {id:"88fleer17", name:"1988-89 Fleer #17", tag:"Base", keys:"1988 88 fleer 17",
+   rarity:"Common in mid grade", rare:"Printed in larger numbers. PSA 10 is the money grade.",
+   watch:"Centering and print lines on the gray gradient stripes.",
+   conf:"Medium", src:"Card Ladder: PSA 10 $7,500 to $12,750 (Aug 2026); PSA 9 auctions $710 to $810.",
+   p:[55,65,85,100,120,150,200,300,800,10000]},
+  {id:"89fleer21", name:"1989-90 Fleer #21", tag:"Base", keys:"1989 89 fleer 21",
+   rarity:"Junk-wax era", rare:"Mass-produced. Only high grades carry real money.",
+   watch:"Centering and print defects in the colored stripes.",
+   conf:"Low", src:"Price index PSA 10 near $1,041 and PSA 9 near $61; older guides run higher.",
+   p:[12,14,18,21,25,30,40,55,120,1400]},
+  {id:"89hoops200", name:"1989-90 Hoops #200", tag:"Base", keys:"1989 89 hoops 200 nba",
+   rarity:"Junk-wax era", rare:"Mass-produced. Below PSA 10 the grading fee eats most of the value.",
+   watch:"Centering and print defects.",
+   conf:"Medium", src:"Price index PSA 10 near $145 to $150 and PSA 9 near $21 to $23.",
+   p:[5,6,7,8,9,10,12,15,25,160]},
+  {id:"90fleer26", name:"1990-91 Fleer #26", tag:"Base", keys:"1990 90 fleer 26",
+   rarity:"Junk-wax era", rare:"Mass-produced. Watch for the black-line variation, listed separately.",
+   watch:"Centering and print defects.",
+   conf:"Low", src:"Guide estimate PSA 10 $150 to $250; PSA 9 listings near $90.",
+   p:[5,6,7,8,9,11,14,20,45,220]},
+  {id:"90hoops65", name:"1990-91 Hoops #65", tag:"Base", keys:"1990 90 hoops 65 nba",
+   rarity:"Junk-wax era", rare:"Mass-produced.",
+   watch:"Centering and print defects.",
+   conf:"Low", src:"Estimated from comparable junk-wax Jordan base cards.",
+   p:[4,5,6,7,8,9,11,14,25,140]},
+  {id:"90skybox41", name:"1990-91 SkyBox #41", tag:"Base", keys:"1990 90 skybox sky box 41",
+   rarity:"Junk-wax era", rare:"Mass-produced.",
+   watch:"Edges chip easily on this stock; centering varies a lot.",
+   conf:"Low", src:"Estimated from comparable junk-wax Jordan base cards.",
+   p:[5,6,7,8,9,11,14,20,50,350]},
+  {id:"91fleer29", name:"1991-92 Fleer #29", tag:"Base", keys:"1991 91 fleer 29",
+   rarity:"Junk-wax era", rare:"Mass-produced.",
+   watch:"Centering and print defects.",
+   conf:"Low", src:"Estimated from comparable junk-wax Jordan base cards.",
+   p:[4,5,6,7,8,9,11,14,30,150]},
+  {id:"93finest1", name:"1993-94 Finest #1", tag:"Base", keys:"1993 93 finest 1 topps chrome",
+   rarity:"Early chrome", rare:"Early chrome stock with dark borders that show every edge chip.",
+   watch:"Edge whitening on the dark border and scratches on the chrome surface.",
+   conf:"Low", src:"Estimate; scaled from the Finest refractor comps.",
+   p:[40,50,60,70,80,95,120,170,350,2200]},
+  {id:"93finest1r", name:"1993-94 Finest Refractor #1", tag:"Refractor", keys:"1993 93 finest 1 refractor",
+   rarity:"Short print", rare:"Refractors were short-printed. High-grade copies with a clean coating are scarce.",
+   watch:"Clouding or peeling of the protective coating, edge whitening, surface scratches.",
+   conf:"Medium", src:"Card Ladder PSA 9 $5,160 (Aug 2026) and $8,750 (Jul 2026); PSA 10 index $14,300 to $16,900.",
+   p:[900,1100,1300,1500,1800,2200,2800,3600,6000,16000]},
+  {id:"96chrome139", name:"1996-97 Topps Chrome #139", tag:"Base", keys:"1996 96 topps chrome 139",
+   rarity:"Chrome", rare:"The first Topps Chrome basketball set.",
+   watch:"Surface scratches, edge chipping, centering.",
+   conf:"Medium", src:"Vintage Card Prices PSA 10 average $2,277.",
+   p:[30,40,50,60,70,85,110,160,350,2200]},
+  {id:"96chrome139r", name:"1996-97 Topps Chrome Refractor #139", tag:"Refractor", keys:"1996 96 topps chrome 139 refractor",
+   rarity:"Short print", rare:"Refractor parallel; few sales a year in high grade.",
+   watch:"Surface scratches and edge chipping show badly on refractors.",
+   conf:"Low", src:"Price index PSA 10 near $25,100 and PSA 9 near $5,825, on one or two sales a year.",
+   p:[650,800,950,1100,1300,1600,2000,2800,5800,25000]},
+  {id:"custom", name:"Other Jordan card", tag:"Your comps", keys:"other custom",
+   rarity:"Unknown", rare:"Type recent PSA sale prices into the price table below and the estimate will use them.",
+   watch:"",
+   conf:"Yours", src:"Placeholder numbers. Replace them with recent sales.",
+   p:[10,12,15,18,22,28,38,60,150,800]}
+];
+const byId = Object.fromEntries(CARDS.map(c => [c.id, c]));
+
+/* ===================== Helpers ===================== */
+const $ = (s) => document.querySelector(s);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const round05 = (v) => Math.round(v*2)/2;
+function sig3(v, mode){
+  if (!isFinite(v) || v <= 0) return 0;
+  const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(v)) - 2));
+  return (mode === "floor" ? Math.floor(v/p) : Math.round(v/p)) * p;
+}
+const usd = (v, mode) => "$" + sig3(v, mode).toLocaleString("en-US");
+const pct = (p) => p >= 0.995 ? "99%+" : p > 0 && p < 0.01 ? "<1%" : Math.round(p*100) + "%";
+function interp(x, pts){
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) {
+    const [x0,y0] = pts[i-1], [x1,y1] = pts[i];
+    return y0 + (y1-y0) * (x-x0)/(x1-x0);
+  }
+  return pts[pts.length-1][1];
+}
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r){ let u = 0; while (u === 0) u = r(); return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*r()); }
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const num = (v) => { const n = parseFloat(String(v ?? "").replace(/[$,%\s]/g, "")); return isFinite(n) ? n : null; };
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function sevClass(g){ return g == null ? "" : g >= 8.75 ? "sev-good" : g >= 6.75 ? "sev-warn" : "sev-bad"; }
+
+/* ===================== Image analysis =====================
+   Pass 1 finds the card on a small copy of the screenshot; pass 2 measures a sharper copy
+   (longest side up to 1000 px) of just the card and a margin around it. Steps:
+   1. flood-fill the background in from the image border
+   2. pick the largest card-shaped blob that is left (looking inside a photo panel or slab if needed)
+   3. fit a straight line to each card edge (robust to chips)
+   4. walk inward from each edge to find where the border color ends (centering)
+   5. corners: how much of a sharp square corner is missing
+   6. edges: dents in the fitted edge, roughness, whitening on dark borders
+   7. border specks (print dots, marks), glare and sharpness */
+const WORK_MAX = 1000;
+const work = document.createElement("canvas");
+const wctx = work.getContext("2d", {willReadFrequently: true});
+const SIDES = {L:{vert:true,inw:1}, R:{vert:true,inw:-1}, T:{vert:false,inw:1}, B:{vert:false,inw:-1}};
+
+function boxBlur(src, W, H){
+  const tmp = new Uint16Array(W*H), out = new Uint8Array(W*H);
+  for (let y = 0; y < H; y++){ const o = y*W;
+    for (let x = 0; x < W; x++) tmp[o+x] = src[o+(x>0?x-1:x)] + src[o+x] + src[o+(x<W-1?x+1:x)]; }
+  for (let y = 0; y < H; y++){ const o = y*W, up = (y>0?y-1:y)*W, dn = (y<H-1?y+1:y)*W;
+    for (let x = 0; x < W; x++) out[o+x] = ((tmp[up+x] + tmp[o+x] + tmp[dn+x]) / 9 + 0.5) | 0; }
+  return out;
+}
+
+function growBackground(R, G, B, W, H, rect){
+  // Flood-fill from the rect's border. A pixel joins the background when it is close to its
+  // neighbor, to the running background color and to its starting color, and isn't sitting on
+  // a strong edge (which stops the fill creeping along the soft, tilted edge of a card).
+  // Thresholds scale with how textured the background is.
+  const [rx0, ry0, rx1, ry1] = rect, N = W*H;
+  const bg = new Uint8Array(N), q = new Int32Array(N), seed = new Int32Array(N);
+  const er = new Float32Array(N), eg = new Float32Array(N), eb = new Float32Array(N);
+  if (rx0 > 0 || ry0 > 0 || rx1 < W-1 || ry1 < H-1){ bg.fill(1); for (let y = ry0; y <= ry1; y++) bg.fill(0, y*W + rx0, y*W + rx1 + 1); }
+  const ring = [];
+  for (let x = rx0; x < rx1; x += 2){ ring.push(Math.abs(G[ry0*W+x] - G[ry0*W+x+1]), Math.abs(G[ry1*W+x] - G[ry1*W+x+1])); }
+  for (let y = ry0; y < ry1; y += 2){ ring.push(Math.abs(G[y*W+rx0] - G[(y+1)*W+rx0]), Math.abs(G[y*W+rx1] - G[(y+1)*W+rx1])); }
+  ring.sort((p, q) => p - q);
+  const tex = ring.length ? ring[Math.floor(ring.length*0.6)] : 0;
+  const T1 = clamp(10 + 2*tex, 14, 28), T2 = clamp(9 + 4*tex, 13, 40), Tg = clamp(12 + 3*tex, 16, 60), TS = 80, K = 0.05;
+  let qh = 0, qt = 0;
+  const add = (i) => { if (!bg[i]) { bg[i] = 1; seed[i] = i; er[i] = R[i]; eg[i] = G[i]; eb[i] = B[i]; q[qt++] = i; } };
+  for (let x = rx0; x <= rx1; x++){ add(ry0*W + x); add(ry1*W + x); }
+  for (let y = ry0; y <= ry1; y++){ add(y*W + rx0); add(y*W + rx1); }
+  const dmax = (a, b) => { let d = Math.abs(R[a]-R[b]), t = Math.abs(G[a]-G[b]); if (t > d) d = t; t = Math.abs(B[a]-B[b]); return t > d ? t : d; };
+  while (qh < qt){
+    const i = q[qh++], x = i % W, y = (i - x) / W, s = seed[i];
+    const mr = er[i], mg = eg[i], mb = eb[i];
+    for (let k = 0; k < 4; k++){
+      let j, jx = x, jy = y;
+      if (k === 0){ if (x <= rx0) continue; j = i - 1; jx--; }
+      else if (k === 1){ if (x >= rx1) continue; j = i + 1; jx++; }
+      else if (k === 2){ if (y <= ry0) continue; j = i - W; jy--; }
+      else { if (y >= ry1) continue; j = i + W; jy++; }
+      if (bg[j]) continue;
+      if (dmax(i, j) > T1 || dmax(s, j) > TS) continue;
+      const rj = R[j], gj = G[j], bj = B[j];
+      let d = Math.abs(rj-mr), t = Math.abs(gj-mg); if (t > d) d = t; t = Math.abs(bj-mb); if (t > d) d = t;
+      if (d > T2) continue;
+      const xl = jx > 0 ? j-1 : j, xr = jx < W-1 ? j+1 : j, yu = jy > 0 ? j-W : j, yd = jy < H-1 ? j+W : j;
+      if (dmax(xl, xr) > Tg || dmax(yu, yd) > Tg) continue;
+      bg[j] = 1; seed[j] = s; er[j] = mr + (rj-mr)*K; eg[j] = mg + (gj-mg)*K; eb[j] = mb + (bj-mb)*K; q[qt++] = j;
+    }
+  }
+  // The edge barrier leaves a 1-2 px halo of background stuck to the card. Hand each halo pixel to
+  // whichever side it is closer to in color: the background next to it, or the card 2 px further in.
+  for (let pass = 0; pass < 2; pass++){
+    const moves = [];
+    for (let y = ry0 + 2; y <= ry1 - 2; y++) for (let x = rx0 + 2; x <= rx1 - 2; x++){
+      const j = y*W + x;
+      if (bg[j]) continue;
+      for (const d of [-1, 1, -W, W]){
+        const i = j - d;
+        if (!bg[i]) continue;
+        const p = j + 2*d;
+        if (bg[p]) continue;
+        let a = Math.abs(R[j]-er[i]), t = Math.abs(G[j]-eg[i]); if (t > a) a = t; t = Math.abs(B[j]-eb[i]); if (t > a) a = t;
+        if (a < dmax(j, p)){ moves.push(j, i); break; }
+      }
+    }
+    for (let m = 0; m < moves.length; m += 2){ const j = moves[m], i = moves[m+1]; bg[j] = 1; er[j] = er[i]; eg[j] = eg[i]; eb[j] = eb[i]; }
+  }
+  return bg;
+}
+
+function bestComponent(bg, W, H, rect){
+  const [rx0, ry0, rx1, ry1] = rect, RA = (rx1-rx0+1)*(ry1-ry0+1);
+  const lab = new Int32Array(W*H), q = new Int32Array(RA);
+  let best = null, n = 0;
+  const minArea = RA * 0.03;
+  for (let y = ry0; y <= ry1; y++) for (let x = rx0; x <= rx1; x++){
+    const i0 = y*W + x;
+    if (bg[i0] || lab[i0]) continue;
+    n++; let qh = 0, qt = 0; q[qt++] = i0; lab[i0] = n;
+    let cnt = 0, x0 = W, x1 = 0, y0 = H, y1 = 0;
+    while (qh < qt){
+      const i = q[qh++]; cnt++;
+      const px = i % W, py = (i - px) / W;
+      if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      if (px > 0 && !bg[i-1] && !lab[i-1]){ lab[i-1] = n; q[qt++] = i-1; }
+      if (px < W-1 && !bg[i+1] && !lab[i+1]){ lab[i+1] = n; q[qt++] = i+1; }
+      if (py > 0 && !bg[i-W] && !lab[i-W]){ lab[i-W] = n; q[qt++] = i-W; }
+      if (py < H-1 && !bg[i+W] && !lab[i+W]){ lab[i+W] = n; q[qt++] = i+W; }
+    }
+    if (cnt < minArea) continue;
+    const bw = x1-x0+1, bh = y1-y0+1;
+    const asp = Math.min(bw, bh) / Math.max(bw, bh);
+    const aspS = Math.exp(-Math.pow((asp - 0.714) / 0.09, 2));
+    const fill = cnt / (bw*bh);
+    const cen = 1 - Math.min(1, Math.hypot((x0+x1)/2 - (rx0+rx1)/2, (y0+y1)/2 - (ry0+ry1)/2) / Math.hypot(rx1-rx0, ry1-ry0) * 2.8);
+    const score = Math.sqrt(bw*bh/RA) * aspS * fill * fill * (0.5 + 0.5*cen);
+    if (!best || score > best.score) best = {id:n, bb:[x0,y0,x1,y1], score, aspS, fill};
+  }
+  if (!best) return null;
+  const mask = new Uint8Array(W*H);
+  for (let i = 0; i < lab.length; i++) if (lab[i] === best.id) mask[i] = 1;
+  best.mask = mask; best.shape = best.aspS * best.fill * best.fill;
+  return best;
+}
+
+function detectCard(A, maxDepth){
+  // If the best blob isn't card-shaped (a photo panel, a slab), look again inside it.
+  let rect = [0, 0, A.W-1, A.H-1], chosen = null;
+  for (let depth = 0; depth <= maxDepth; depth++){
+    const c = bestComponent(growBackground(A.Rb, A.Gb, A.Bb, A.W, A.H, rect), A.W, A.H, rect);
+    if (!c) break;
+    c.depth = depth;
+    if (!chosen || (chosen.shape < 0.55 && c.shape > chosen.shape + 0.15)) chosen = c; else break;
+    if (c.shape >= 0.55) break;
+    const [x0, y0, x1, y1] = c.bb;
+    if (x1 - x0 < 24 || y1 - y0 < 24) break;
+    rect = [x0+1, y0+1, x1-1, y1-1];
+  }
+  return chosen && chosen.shape >= 0.3 ? chosen : null;
+}
+
+function robustFit(pts){
+  if (pts.length < 8) return null;
+  let use = pts, fit = null;
+  for (let it = 0; it < 3; it++){
+    let st = 0, sv = 0, stt = 0, stv = 0; const n = use.length;
+    for (const [t,v] of use){ st += t; sv += v; stt += t*t; stv += t*v; }
+    const den = n*stt - st*st;
+    const a = den ? (n*stv - st*sv) / den : 0;
+    fit = {a, b:(sv - a*st) / n};
+    const res = pts.map(([t,v]) => v - (fit.a*t + fit.b));
+    const sorted = res.map(Math.abs).sort((p,q) => p-q);
+    const cut = Math.max(1.5, 3 * 1.4826 * sorted[sorted.length >> 1]);
+    const next = pts.filter((_, k) => Math.abs(res[k]) <= cut);
+    if (next.length < 8) break;
+    use = next;
+  }
+  return fit;
+}
+
+function fitEdges(mask, W, bb){
+  const [x0,y0,x1,y1] = bb, bw = x1-x0+1, bh = y1-y0+1;
+  const P = {L:[], R:[], T:[], B:[]};
+  const mx = Math.round(bw*0.3), my = Math.round(bh*0.3);
+  for (let y = Math.floor(y0 + bh*0.1); y <= Math.ceil(y1 - bh*0.1); y++){
+    const o = y*W;
+    for (let x = x0; x <= x0 + mx; x++) if (mask[o+x]) { P.L.push([y,x]); break; }
+    for (let x = x1; x >= x1 - mx; x--) if (mask[o+x]) { P.R.push([y,x]); break; }
+  }
+  for (let x = Math.floor(x0 + bw*0.1); x <= Math.ceil(x1 - bw*0.1); x++){
+    for (let y = y0; y <= y0 + my; y++) if (mask[y*W+x]) { P.T.push([x,y]); break; }
+    for (let y = y1; y >= y1 - my; y--) if (mask[y*W+x]) { P.B.push([x,y]); break; }
+  }
+  const lines = {L:robustFit(P.L), R:robustFit(P.R), T:robustFit(P.T), B:robustFit(P.B)};
+  if (!lines.L || !lines.R || !lines.T || !lines.B) return null;
+  return {lines, pts:P};
+}
+
+function pxAt(A, side, t, e, s){
+  let x, y;
+  if (SIDES[side].vert){ x = Math.round(e + SIDES[side].inw*s); y = Math.round(t); }
+  else { x = Math.round(t); y = Math.round(e + SIDES[side].inw*s); }
+  if (x < 0 || y < 0 || x >= A.W || y >= A.H) return -1;
+  return y*A.W + x;
+}
+function tRange(side, C, cardW, cardH, inset){
+  if (SIDES[side].vert){
+    const a = Math.max(C.tl.y, C.tr.y), b = Math.min(C.bl.y, C.br.y);
+    return [Math.ceil(a + cardH*inset), Math.floor(b - cardH*inset)];
+  }
+  const a = Math.max(C.tl.x, C.bl.x), b = Math.min(C.tr.x, C.br.x);
+  return [Math.ceil(a + cardW*inset), Math.floor(b - cardW*inset)];
+}
+function consensus(ws, tol){
+  if (!ws.length) return {v:0, count:0};
+  const a = [...ws].sort((x,y) => x-y);
+  let best = 0, bi = 0, j = 0;
+  for (let i = 0; i < a.length; i++){
+    if (j < i) j = i;
+    while (j + 1 < a.length && a[j+1] - a[i] <= 2*tol) j++;
+    if (j - i + 1 > best){ best = j - i + 1; bi = i; }
+  }
+  const win = a.slice(bi, bi + best);
+  return {v: win[win.length >> 1], count: best};
+}
+
+function borderWidths(A, lines, C, cardW, cardH){
+  const out = {};
+  const skip = Math.max(2, Math.round(cardW*0.006)), k = Math.max(2, Math.round(cardW*0.008)), TH = 38;
+  const dist = (i, r, g, b) => Math.max(Math.abs(A.Rb[i]-r), Math.abs(A.Gb[i]-g), Math.abs(A.Bb[i]-b));
+  for (const side of ["L","R","T","B"]){
+    const f = lines[side], vert = SIDES[side].vert;
+    const [ta, tb] = tRange(side, C, cardW, cardH, 0.15);
+    const step = Math.max(1, Math.round((tb - ta) / 260));
+    const maxS = Math.round((vert ? cardW : cardH) * 0.3);
+    const ws = []; let rows = 0, rr = 0, gg = 0, bb = 0, nr = 0;
+    for (let t = ta; t <= tb; t += step){
+      rows++;
+      const e = f.a*t + f.b;
+      let r = 0, g = 0, b = 0, c = 0;
+      for (let s = skip; s < skip + k; s++){ const i = pxAt(A, side, t, e, s); if (i < 0) continue; r += A.Rb[i]; g += A.Gb[i]; b += A.Bb[i]; c++; }
+      if (!c) continue;
+      r /= c; g /= c; b /= c; rr += r; gg += g; bb += b; nr++;
+      for (let s = skip + k; s < maxS; s++){
+        const i0 = pxAt(A, side, t, e, s), i1 = pxAt(A, side, t, e, s+1), i2 = pxAt(A, side, t, e, s+2);
+        if (i0 < 0 || i1 < 0 || i2 < 0) break;
+        if (dist(i0,r,g,b) > TH && dist(i1,r,g,b) > TH && dist(i2,r,g,b) > TH){ ws.push(s); break; }
+      }
+    }
+    const cons = consensus(ws, Math.max(1.5, cardW*0.005));
+    out[side] = {w:cons.v, agree: rows ? cons.count/rows : 0, n:ws.length, ref: nr ? [rr/nr, gg/nr, bb/nr] : null};
+  }
+  return out;
+}
+
+function cornerGrade(rPct, wf){
+  let g = interp(rPct, [[0,10],[0.45,10],[0.8,9],[1.2,8],[1.6,7],[2.2,6],[3.0,5],[4.0,4],[5.5,3],[8,2]]);
+  if (wf != null) g = Math.min(g, interp(wf, [[0,10],[0.01,10],[0.03,9],[0.06,8],[0.1,7],[0.16,6],[0.25,5]]));
+  return round05(g);
+}
+
+function cornerStats(A, mask, lines, C, cardW, tone){
+  // Missing area inside a square patch at the corner, minus the edge noise measured in
+  // equal-size strips right next to it. A rounded corner of radius r misses 0.2146·r² pixels.
+  const s = Math.max(5, Math.round(cardW*0.05)), near = s*0.45;
+  const defs = {tl:["L","T",1,1], tr:["R","T",-1,1], bl:["L","B",1,-1], br:["R","B",-1,-1]};
+  const res = {};
+  for (const key in defs){
+    const [vs, hs, dx, dy] = defs[key], lv = lines[vs], lh = lines[hs];
+    const x0 = Math.round(C[key].x), y0 = Math.round(C[key].y);
+    const count = (u0, u1, v0, v1, white) => {
+      let miss = 0, wh = 0, fg = 0;
+      for (let v = v0; v < v1; v++) for (let u = u0; u < u1; u++){
+        const x = x0 + dx*u, y = y0 + dy*v;
+        const ex = Math.round(lv.a*y + lv.b), ey = Math.round(lh.a*x + lh.b);
+        if (dx > 0 ? x < ex : x > ex) continue;
+        if (dy > 0 ? y < ey : y > ey) continue;
+        if (x < 0 || y < 0 || x >= A.W || y >= A.H){ miss++; continue; }
+        const i = y*A.W + x;
+        if (!mask[i]){ miss++; continue; }
+        if (white && (u < near || v < near) && (!tone.bgLight || (u >= 2 && v >= 2))){ fg++; if (A.Y[i] > tone.lum + 60 && A.Y[i] > 140) wh++; }
+      }
+      return {miss, wh, fg};
+    };
+    const p = count(0, s, 0, s, tone.dark);
+    const base = Math.min(0.8*s, count(0, s, s, 2*s, false).miss + count(s, 2*s, 0, s, false).miss);
+    const m = Math.max(0, p.miss - base);
+    const rPct = 100 * Math.sqrt(m / 0.2146) / cardW;
+    const wf = tone.dark && p.fg ? p.wh/p.fg : null;
+    res[key] = {rPct, wf, g:cornerGrade(rPct, wf)};
+  }
+  return res;
+}
+
+function edgeStats(A, lines, pts, C, cardW, cardH, tone){
+  const thr = Math.max(1.2, cardW*0.0035);
+  const notches = []; let stdSum = 0;
+  for (const side of ["L","R","T","B"]){
+    const P = pts[side], f = lines[side], inw = SIDES[side].inw;
+    const res = P.map(([t,v]) => inw * (v - (f.a*t + f.b)));
+    let sq = 0, cnt = 0;
+    for (const r of res) if (Math.abs(r) < 3*thr){ sq += r*r; cnt++; }
+    stdSum += cnt ? Math.sqrt(sq/cnt) : 0;
+    for (let k = 0; k < res.length;){
+      if (res[k] > thr){
+        let j = k, d = 0;
+        while (j < res.length && res[j] > thr*0.6){ d = Math.max(d, res[j]); j++; }
+        if (j - k >= 2) notches.push({side, t:P[(k + j - 1) >> 1][0], depth:d});
+        k = j;
+      } else k++;
+    }
+  }
+  const roughPct = 100 * (stdSum/4) / cardW;
+  let whiteFrac = null;
+  if (tone.dark){
+    let w = 0, c = 0;
+    const ws = Math.max(2, Math.round(cardW*0.012));
+    for (const side of ["L","R","T","B"]){
+      const f = lines[side], [ta, tb] = tRange(side, C, cardW, cardH, 0.06);
+      let bl = 0, bn = 0;
+      for (let t = ta; t <= tb; t += 6) for (let s = -6; s <= -3; s++){ const i = pxAt(A, side, t, f.a*t + f.b, s); if (i >= 0){ bl += A.Y[i]; bn++; } }
+      const s0 = bn && bl/bn > tone.lum + 40 ? 2 : 0;
+      for (let t = ta; t <= tb; t += 2){
+        const e = f.a*t + f.b;
+        for (let s = s0; s < ws; s++){ const i = pxAt(A, side, t, e, s); if (i < 0) continue; c++; if (A.Y[i] > tone.lum + 60 && A.Y[i] > 140) w++; }
+      }
+    }
+    whiteFrac = c ? w/c : null;
+  }
+  const gR = interp(roughPct, [[0,10],[0.12,10],[0.2,9],[0.3,8],[0.45,7],[0.65,6],[0.9,5],[1.3,4]]);
+  let pen = 0; for (const n of notches) pen += clamp(0.6 + 2*(100*n.depth/cardW), 0.6, 3);
+  const gN = Math.max(3, 10 - pen);
+  const gW = whiteFrac == null ? 10 : interp(whiteFrac, [[0,10],[0.005,10],[0.02,9],[0.05,8],[0.1,7],[0.18,6],[0.3,5]]);
+  return {notches, roughPct, whiteFrac, g:round05(Math.min(gR, gN, gW))};
+}
+
+function surfaceStats(A, lines, C, cardW, cardH, bw, G){
+  const skip = Math.max(2, Math.round(cardW*0.006));
+  let sp = 0, tot = 0;
+  for (const side of ["L","R","T","B"]){
+    const b = bw[side];
+    if (!b.ref || b.agree < 0.3 || b.w < 2*skip + 3) continue;
+    const f = lines[side], [ta, tb] = tRange(side, C, cardW, cardH, 0.15), [r,g,bl] = b.ref;
+    for (let t = ta; t <= tb; t++){
+      const e = f.a*t + f.b;
+      for (let s = skip + 1; s < b.w - skip; s++){
+        const i = pxAt(A, side, t, e, s); if (i < 0) continue;
+        tot++;
+        if (Math.max(Math.abs(A.R[i]-r), Math.abs(A.G[i]-g), Math.abs(A.B[i]-bl)) > 60) sp++;
+      }
+    }
+  }
+  const speck = tot > 200 ? sp/tot : null;
+  let glare = 0, n = 0, l1 = 0, l2 = 0;
+  const x0 = Math.max(1, Math.ceil(G.iL + 4)), x1 = Math.min(A.W - 1, Math.floor(G.iR - 4));
+  const y0 = Math.max(1, Math.ceil(G.iT + 4)), y1 = Math.min(A.H - 1, Math.floor(G.iB - 4));
+  for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2){
+    const i = y*A.W + x, c = A.Y[i]; n++;
+    if (c >= 250) glare++;
+    const L = 4*c - A.Y[i-1] - A.Y[i+1] - A.Y[i-A.W] - A.Y[i+A.W]; l1 += L; l2 += L*L;
+  }
+  const lapVar = n ? l2/n - (l1/n)**2 : 0;
+  const gS = speck == null ? null : interp(speck, [[0,10],[0.002,10],[0.006,9],[0.012,8],[0.025,7],[0.04,6],[0.07,5]]);
+  return {speck, glareFrac: n ? glare/n : 0, lapVar, measured: gS != null, g: round05(gS == null ? 8.5 : 0.5*gS + 0.5*8.5)};
+}
+
+const det = document.createElement("canvas");
+const dctx = det.getContext("2d", {willReadFrequently: true});
+function readPixels(ctx, canvas, src, sx, sy, sw, sh, W, H){
+  canvas.width = W; canvas.height = H;
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
+  const d = ctx.getImageData(0, 0, W, H).data, N = W*H;
+  const R = new Uint8Array(N), G = new Uint8Array(N), B = new Uint8Array(N), Y = new Uint8Array(N);
+  for (let i = 0, j = 0; i < N; i++, j += 4){ const r = d[j], g = d[j+1], b = d[j+2]; R[i] = r; G[i] = g; B[i] = b; Y[i] = (r*77 + g*150 + b*29) >> 8; }
+  return {W, H, R, G, B, Y, Rb:boxBlur(R,W,H), Gb:boxBlur(G,W,H), Bb:boxBlur(B,W,H)};
+}
+
+function analyzeImage(src, srcW, srcH, forceTight){
+  const t0 = performance.now();
+  // Pass 1: find the card on a small copy of the whole screenshot.
+  let crop = [0, 0, srcW, srcH], tight = forceTight === true, autoTight = false;
+  if (!tight){
+    const s1 = Math.min(1, 560 / Math.max(srcW, srcH));
+    const A1 = readPixels(dctx, det, src, 0, 0, srcW, srcH, Math.max(16, Math.round(srcW*s1)), Math.max(16, Math.round(srcH*s1)));
+    const c = detectCard(A1, 2);
+    if (c){
+      const [x0, y0, x1, y1] = c.bb, fw = (x1-x0+1)/A1.W, fh = (y1-y0+1)/A1.H;
+      const imgAsp = Math.min(A1.W, A1.H) / Math.max(A1.W, A1.H);
+      if (forceTight == null && c.depth === 0 && ((fw > 0.97 && fh > 0.97) || (Math.abs(imgAsp - 0.714) < 0.035 && fw > 0.75 && fh > 0.75))){ tight = true; autoTight = true; }
+      else {
+        const bx = x0/s1, by = y0/s1, bw = (x1-x0+1)/s1, bh = (y1-y0+1)/s1, m = Math.max(8, 0.08*Math.max(bw, bh));
+        const cx0 = Math.max(0, Math.floor(bx - m)), cy0 = Math.max(0, Math.floor(by - m));
+        crop = [cx0, cy0, Math.min(srcW, Math.ceil(bx + bw + m)) - cx0, Math.min(srcH, Math.ceil(by + bh + m)) - cy0];
+      }
+    } else { tight = true; if (forceTight == null) autoTight = true; }
+  }
+  // Pass 2: measure on a sharper copy of just that region.
+  const sc = Math.min(1, WORK_MAX / Math.max(crop[2], crop[3]));
+  const W = Math.max(16, Math.round(crop[2]*sc)), H = Math.max(16, Math.round(crop[3]*sc));
+  const A = readPixels(wctx, work, src, crop[0], crop[1], crop[2], crop[3], W, H);
+  A.sc = sc; A.offX = crop[0]; A.offY = crop[1];
+  let found = null, fit = null;
+  if (!tight){
+    found = detectCard(A, 1);
+    if (found) fit = fitEdges(found.mask, W, found.bb);
+    if (!fit){ const r = analyzeImage(src, srcW, srcH, true); r.autoTight = forceTight == null; r.ms = performance.now() - t0; return r; }
+  }
+  const lines = fit ? fit.lines : {L:{a:0,b:0}, R:{a:0,b:W-1}, T:{a:0,b:0}, B:{a:0,b:H-1}};
+  const corner = (fv, fh) => { const x = (fv.a*fh.b + fv.b) / (1 - fv.a*fh.a); return {x, y: fh.a*x + fh.b}; };
+  const C = {tl:corner(lines.L, lines.T), tr:corner(lines.R, lines.T), bl:corner(lines.L, lines.B), br:corner(lines.R, lines.B)};
+  const midY = (C.tl.y + C.tr.y + C.bl.y + C.br.y) / 4, midX = (C.tl.x + C.tr.x + C.bl.x + C.br.x) / 4;
+  const oL = lines.L.a*midY + lines.L.b, oR = lines.R.a*midY + lines.R.b + 1;
+  const oT = lines.T.a*midX + lines.T.b, oB = lines.B.a*midX + lines.B.b + 1;
+  const cardW = oR - oL, cardH = oB - oT;
+  const tilt = Math.abs((Math.atan(lines.T.a) + Math.atan(lines.B.a) - Math.atan(lines.L.a) - Math.atan(lines.R.a)) / 4) * 180/Math.PI;
+
+  const bw = borderWidths(A, lines, C, cardW, cardH);
+  const centerOk = ["L","R","T","B"].every(s => bw[s].n >= 10 && bw[s].agree >= 0.3 && bw[s].w > 0);
+  const dflt = (s, span) => bw[s].w > 0 && bw[s].agree >= 0.2 ? bw[s].w : span*0.05;
+  const guides = {oL, oR, oT, oB, iL: oL + dflt("L",cardW), iR: oR - dflt("R",cardW), iT: oT + dflt("T",cardH), iB: oB - dflt("B",cardH)};
+
+  const refs = ["L","R","T","B"].map(s => bw[s].ref).filter(Boolean);
+  const refLum = refs.length ? refs.reduce((a,[r,g,b]) => a + (r*77 + g*150 + b*29)/256, 0) / refs.length : 128;
+  let bgSum = 0, bgN = 0;
+  if (fit) for (const side of ["L","R","T","B"]){
+    const [ta, tb] = tRange(side, C, cardW, cardH, 0.1), f = lines[side];
+    for (let t = ta; t <= tb; t += 4){ const i = pxAt(A, side, t, f.a*t + f.b, -4); if (i >= 0){ bgSum += A.Y[i]; bgN++; } }
+  }
+  const bgLum = bgN ? bgSum/bgN : 0;
+  const tone = {lum:refLum, dark: refLum < 150, white: refLum > 200, bgLight: bgN > 0 && bgLum > refLum + 40};
+
+  let edges = null, corners = null;
+  if (fit){
+    edges = edgeStats(A, lines, fit.pts, C, cardW, cardH, tone);
+    corners = cornerStats(A, found.mask, lines, C, cardW, tone);
+  }
+  const surface = surfaceStats(A, lines, C, cardW, cardH, bw, guides);
+  let cornersG = null;
+  if (corners){
+    const gs = Object.values(corners).map(c => c.g);
+    cornersG = round05(0.7*Math.min(...gs) + 0.3*gs.reduce((a,b) => a+b, 0)/4);
+  }
+  const rf = clamp((cardW - 220) / 600, 0, 1), qf = clamp((surface.lapVar - 25) / 250, 0, 1);
+  const Q = 0.55*rf + 0.45*qf;
+  const sig = {
+    corners: 0.45 + 1.1*(1-Q),
+    edges: 0.45 + 1.1*(1-Q) + (tone.white ? 0.35 : 0),
+    surface: 1.1 + 0.6*(1-Q) + (surface.glareFrac > 0.05 ? 0.4 : 0)
+  };
+  return {W, H, sc, offX:A.offX, offY:A.offY, tight, autoTight, lines, C, cardW, cardH, tilt, bw, centerOk, guides0:{...guides},
+    corners, cornersG, edges, surface, tone, Q, sig, ms: performance.now() - t0};
+}
+
+/* ===================== Example card (synthetic, drawn here) ===================== */
+function makeSample(){
+  const c = document.createElement("canvas"); c.width = 980; c.height = 1080;
+  const g = c.getContext("2d");
+  const bg = g.createLinearGradient(0, 0, 980, 1080); bg.addColorStop(0, "#2c3b4c"); bg.addColorStop(1, "#1a2330");
+  g.fillStyle = bg; g.fillRect(0, 0, 980, 1080);
+  const id = g.getImageData(0, 0, 980, 1080), r = mulberry32(7);
+  for (let i = 0; i < id.data.length; i += 4){ const n = (r() - 0.5) * 10; id.data[i] += n; id.data[i+1] += n; id.data[i+2] += n; }
+  g.putImageData(id, 0, 0);
+  const cw = 560, ch = 784;
+  g.save(); g.translate(490, 540); g.rotate(0.5 * Math.PI/180); g.translate(-cw/2, -ch/2);
+  const rad = {tl:2, tr:2, br:9, bl:3};
+  g.beginPath();
+  g.moveTo(rad.tl, 0); g.lineTo(cw - rad.tr, 0); g.arcTo(cw, 0, cw, rad.tr, rad.tr);
+  g.lineTo(cw, ch - rad.br); g.arcTo(cw, ch, cw - rad.br, ch, rad.br);
+  g.lineTo(rad.bl, ch); g.arcTo(0, ch, 0, ch - rad.bl, rad.bl);
+  g.lineTo(0, rad.tl); g.arcTo(0, 0, rad.tl, 0, rad.tl); g.closePath();
+  g.fillStyle = "#f6f5f0"; g.fill(); g.save(); g.clip();
+  const L = 36, R = 26, T = 33, B = 37, fw = cw - L - R, fh = ch - T - B;
+  g.fillStyle = "#c8102e"; g.fillRect(L, T, fw, fh);
+  g.fillStyle = "#f6f5f0"; g.fillRect(L + 8, T + 8, fw - 16, fh - 16);
+  g.fillStyle = "#1f3f94"; g.fillRect(L + 13, T + 13, fw - 26, fh - 26);
+  const px0 = L + 19, py0 = T + 19, pw = fw - 38, ph = fh - 38;
+  const sky = g.createLinearGradient(0, py0, 0, py0 + ph); sky.addColorStop(0, "#22325a"); sky.addColorStop(0.62, "#4d6aa3"); sky.addColorStop(0.62, "#c48a52"); sky.addColorStop(1, "#9c6537");
+  g.fillStyle = sky; g.fillRect(px0, py0, pw, ph);
+  g.strokeStyle = "rgba(255,255,255,.18)"; g.lineWidth = 2;
+  for (let k = 1; k < 9; k++){ const yy = py0 + ph*0.62 + k*ph*0.045; g.beginPath(); g.moveTo(px0, yy); g.lineTo(px0 + pw, yy); g.stroke(); }
+  g.fillStyle = "#e8742c"; g.beginPath(); g.arc(px0 + pw*0.55, py0 + ph*0.33, 62, 0, Math.PI*2); g.fill();
+  g.strokeStyle = "#3a1c0c"; g.lineWidth = 3;
+  g.beginPath(); g.arc(px0 + pw*0.55, py0 + ph*0.33, 62, 0, Math.PI*2); g.stroke();
+  g.beginPath(); g.moveTo(px0 + pw*0.55 - 62, py0 + ph*0.33); g.lineTo(px0 + pw*0.55 + 62, py0 + ph*0.33); g.stroke();
+  g.beginPath(); g.ellipse(px0 + pw*0.55, py0 + ph*0.33, 26, 62, 0, 0, Math.PI*2); g.stroke();
+  g.fillStyle = "#c8102e"; g.fillRect(px0, py0 + ph - 62, pw, 62);
+  g.fillStyle = "#ffffff"; g.font = "800 30px Arial Narrow, Arial, sans-serif"; g.textBaseline = "middle";
+  g.fillText("SAMPLE CARD", px0 + 18, py0 + ph - 31);
+  g.fillStyle = "rgba(40,30,30,.85)";
+  for (const [sx, sy] of [[18, 260], [21, 420], [16, 610]]){ g.beginPath(); g.arc(sx, sy, 1.6, 0, Math.PI*2); g.fill(); }
+  g.restore();
+  g.fillStyle = "#283647"; g.beginPath(); g.arc(400, 0, 4.5, 0, Math.PI*2); g.fill();
+  g.restore();
+  return c;
+}
+
+/* ===================== State ===================== */
+const saved = store.get("jca.settings", {});
+const S = {
+  src:null, srcW:0, srcH:0, file:null, isSample:true, token:0,
+  an:null, guides:null, guidesEdited:false, tightForce:null,
+  cardId:"86fleer57", userPickedCard:false,
+  mode:"raw", slabGrade:9, qual:"",
+  manual:{}, ai:null,
+  bid:{cur:null, bp: saved.bp ?? 0, tax: saved.tax ?? 0, ship: saved.ship ?? 5, fee:null, margin: saved.margin ?? 10, basis: saved.basis ?? "cons"},
+  tier: saved.tier ?? "quick", autoAsk: saved.autoAsk ?? true,
+  prices: store.get("jca.prices", {})
+};
+function saveSettings(){ const b = S.bid; store.set("jca.settings", {bp:b.bp, tax:b.tax, ship:b.ship, margin:b.margin, basis:b.basis, tier:S.tier, autoAsk:S.autoAsk}); }
+
+/* ===================== Prices ===================== */
+function priceList(card){ const o = S.prices[card.id] || {}; return card.p.map((v, i) => o[i+1] != null ? o[i+1] : v); }
+function priceAt(card, g){
+  const t = priceList(card);
+  const get = (k) => { for (let j = clamp(k,1,10); j >= 1; j--) if (t[j-1] != null) return t[j-1]; return 0; };
+  if (Number.isInteger(g)) return get(g);
+  const a = get(Math.floor(g)), b = get(Math.ceil(g));
+  return a > 0 ? a * Math.pow(b/a, 0.35) : b;
+}
+function psaFee(v){
+  const t = [[500,30],[1500,75],[2500,150],[5000,300],[10000,600],[25000,1000],[50000,1500],[100000,3000],[250000,6500]];
+  for (const [lim, f] of t) if (v < lim) return f;
+  return Math.round(Math.max(10000, v*0.025));
+}
+
+/* ===================== Grade + value model ===================== */
+function currentCentering(){
+  const A = S.an; if (!A) return null;
+  const Gd = S.guides, wL = Gd.iL - Gd.oL, wR = Gd.oR - Gd.iR, wT = Gd.iT - Gd.oT, wB = Gd.oB - Gd.iB;
+  if ((A.centerOk || S.guidesEdited) && wL > 0 && wR > 0 && wT > 0 && wB > 0){
+    const e = S.guidesEdited ? 0.8 : 1.0;
+    return {lr:100*wL/(wL+wR), tb:100*wT/(wT+wB), sLR:Math.max(0.6, 100*e/(wL+wR)), sTB:Math.max(0.6, 100*e/(wT+wB)), src: S.guidesEdited ? "Your guides" : "Measured"};
+  }
+  if (S.ai && S.ai.lr != null) return {lr:S.ai.lr, tb:S.ai.tb ?? 50, sLR:4, sTB: S.ai.tb != null ? 4 : 6, src:"Claude"};
+  return {lr:58, tb:55, sLR:6, sTB:6, src:"Not found", unknown:true};
+}
+function currentSubs(){
+  const A = S.an, out = {};
+  const local = {corners: A?.cornersG ?? null, edges: A?.edges?.g ?? null, surface: A ? A.surface.g : null};
+  for (const k of ["corners","edges","surface"]){
+    const ai = S.ai ? S.ai[k] : null, ls = A ? A.sig[k] : 1.4;
+    if (S.manual[k] != null) out[k] = {v:S.manual[k], s:0.35, src:"You"};
+    else if (local[k] != null && ai != null){
+      const w = k === "surface" ? 0.75 : (A.Q < 0.4 ? 0.7 : 0.5);
+      out[k] = {v:(1-w)*local[k] + w*ai, s:ls*0.75, src:"Scan + Claude"};
+    }
+    else if (ai != null) out[k] = {v:ai, s:1.0, src:"Claude"};
+    else if (local[k] != null) out[k] = {v:local[k], s:ls, src: k === "surface" ? (A.surface.measured ? "Border scan" : "Assumed") : "Measured"};
+    else out[k] = {v:8.5, s:1.4, src:"Assumed"};
+  }
+  return out;
+}
+function gradeModel(){
+  const sub = currentSubs(), cen = currentCentering();
+  const rnd = mulberry32(20261022), n = 4000, counts = new Array(11).fill(0), grades = new Uint8Array(n);
+  for (let i = 0; i < n; i++){
+    const c = clamp(sub.corners.v + sub.corners.s*gauss(rnd), 1, 10);
+    const e = clamp(sub.edges.v + sub.edges.s*gauss(rnd), 1, 10);
+    const s = clamp(sub.surface.v + sub.surface.s*gauss(rnd), 1, 10);
+    let worst = 50;
+    if (cen){ const lr = cen.lr + cen.sLR*gauss(rnd), tb = cen.tb + cen.sTB*gauss(rnd); worst = Math.max(lr, 100-lr, tb, 100-tb); }
+    const mn = Math.min(c, e, s), base = 0.65*mn + 0.35*(c + e + s)/3;
+    const g = clamp(Math.min(capFront(worst), Math.floor(base + 0.25)), 1, 10);
+    counts[g]++; grades[i] = g;
+  }
+  const dist = counts.map(x => x/n);
+  let mode = 10; for (let g = 10; g >= 1; g--) if (dist[g] > dist[mode]) mode = g;
+  const sorted = Array.from(grades).sort((a,b) => a-b);
+  const worstNow = cen ? Math.max(cen.lr, 100-cen.lr, cen.tb, 100-cen.tb) : 50;
+  return {dist, mode, lo:sorted[Math.floor(n*0.1)], hi:sorted[Math.floor(n*0.9)], grades, sub, cen, cap:capFront(worstNow),
+    p9: dist[9] + dist[10], p10: dist[10]};
+}
+function valueModel(gm, card){
+  if (S.mode === "slab"){
+    const g = Math.max(1, S.slabGrade - (S.qual ? 2 : 0)), v = priceAt(card, g);
+    return {basis:v, ev:v, cons:v, likely:v};
+  }
+  const vals = Array.from(gm.grades, g => priceAt(card, g)).sort((a,b) => a-b);
+  const ev = vals.reduce((a,b) => a+b, 0) / vals.length, cons = vals[Math.floor(vals.length*0.25)], likely = priceAt(card, gm.mode);
+  return {basis: S.bid.basis === "ev" ? ev : S.bid.basis === "likely" ? likely : cons, ev, cons, likely};
+}
+
+/* ===================== Rendering ===================== */
+const els = {};
+["view","stage","stageNote","timing","tightChk","meas","flags","q","qList","cardName","cardChips","cardRare","cardWatch","cardFake",
+ "slabCtl","slabGrade","qual","vMainLab","vMain","vSub","vMax","vMaxSub","verdict","bCur","bBp","bTax","bShip","bFee","bFeeLab","bMargin","bBasis",
+ "gNum","gLab","gName","gSub","dist","cVal","cChip","sCorners","oCorners","chCorners","sEdges","oEdges","chEdges","sSurface","oSurface","chSurface",
+ "aiPanel","aiState","aiMsg","askBtn","stopBtn","autoAsk","tier","aiFinds","priceSrc","pBody","compsLink","stdBody","file"].forEach(id => els[id] = document.getElementById(id));
+
+function chipClass(src){ return src === "You" ? "chip blue" : src.includes("Claude") ? "chip good" : src === "Assumed" || src === "Not found" ? "chip warn" : "chip"; }
+
+function update(){
+  const card = byId[S.cardId], gm = gradeModel(), vm = valueModel(gm, card), raw = S.mode === "raw";
+  // card panel
+  els.cardName.textContent = card.name;
+  els.cardChips.innerHTML = "";
+  const chips = [[card.tag, "chip"], [card.rarity, "chip blue"], ["Price data: " + card.conf, card.conf === "Low" ? "chip warn" : card.conf === "Yours" ? "chip blue" : "chip"]];
+  for (const [t, c] of chips){ if (!t) continue; const s = document.createElement("span"); s.className = c; s.textContent = t; els.cardChips.append(s); }
+  els.cardRare.innerHTML = ""; els.cardRare.append(Object.assign(document.createElement("b"), {textContent:"Rarity: "}), card.rare);
+  els.cardWatch.hidden = !card.watch;
+  els.cardWatch.innerHTML = ""; els.cardWatch.append(Object.assign(document.createElement("b"), {textContent:"Grade killers: "}), card.watch || "");
+  els.cardFake.hidden = !(card.fake && raw); els.cardFake.textContent = card.fake || "";
+
+  // value + bid
+  const b = S.bid;
+  const fee = raw ? (b.fee != null ? b.fee : psaFee(vm.basis)) : 0;
+  els.bFee.placeholder = raw ? "auto " + psaFee(vm.basis).toLocaleString("en-US") : "n/a";
+  els.bFee.disabled = !raw; els.bBasis.disabled = !raw;
+  const net = vm.basis * (1 - (b.margin || 0)/100) - (b.ship || 0) - fee;
+  const maxBid = Math.max(0, net / ((1 + (b.bp || 0)/100) * (1 + (b.tax || 0)/100)));
+  els.vMainLab.textContent = raw ? "Value if graded" : "Value";
+  els.vMain.textContent = usd(vm.basis);
+  els.vSub.textContent = raw
+    ? `Expected ${usd(vm.ev)} · conservative ${usd(vm.cons)} · PSA ${gm.mode} ≈ ${usd(vm.likely)}`
+    : `PSA ${S.slabGrade}${S.qual ? " " + S.qual : ""} comps${S.qual ? ", valued about two grades lower" : ""}`;
+  els.vMax.textContent = usd(maxBid, "floor");
+  const parts = [];
+  if (b.bp) parts.push(`${b.bp}% premium`); if (b.tax) parts.push(`${b.tax}% tax`); if (b.ship) parts.push(`$${b.ship} shipping`);
+  if (raw) parts.push(`$${Math.round(fee).toLocaleString("en-US")} grading`); if (b.margin) parts.push(`${b.margin}% margin`);
+  els.vMaxSub.textContent = parts.length ? "After " + parts.join(", ") : "Break-even at the estimated value";
+  const v = els.verdict;
+  if (maxBid <= 0){ v.className = "verdict bad"; v.textContent = "At these numbers any winning bid loses money."; }
+  else if (b.cur == null){ v.className = "verdict"; v.textContent = "Type the current bid to see your headroom."; }
+  else if (b.cur <= maxBid){ v.className = "verdict good"; v.textContent = `Room to bid: ${usd(maxBid - b.cur, "floor")} under your max.`; }
+  else { v.className = "verdict bad"; v.textContent = `Pass: the current bid is ${usd(b.cur - maxBid)} over your max.`; }
+
+  // grade
+  els.dist.hidden = !raw;
+  if (raw){
+    els.gLab.textContent = "Estimated PSA grade";
+    els.gNum.textContent = gm.mode;
+    els.gName.textContent = GNAME[gm.mode];
+    els.gSub.textContent = (gm.lo === gm.hi ? `Almost surely PSA ${gm.lo}` : `Range PSA ${gm.lo} to ${gm.hi}`) + ` · ${pct(gm.p9)} chance of 9 or better · ${pct(gm.p10)} of a 10`;
+    els.dist.innerHTML = "";
+    const maxP = Math.max(...gm.dist.slice(1));
+    let low = 0;
+    for (let g = 10; g >= 1; g--){
+      const p = gm.dist[g];
+      if (g <= 4 && g < gm.lo){ low += p; continue; }
+      if (p < 0.005 && g !== gm.mode) continue;
+      els.dist.append(distRow(`PSA ${g}`, p, maxP, priceAt(card, g), g === gm.mode, g === 10 && card.p[9] == null && !(S.prices[card.id] || {})[10]));
+    }
+    if (low >= 0.005) els.dist.append(distRow("PSA 1-4", low, maxP, priceAt(card, 3), false));
+  } else {
+    els.gLab.textContent = "Graded";
+    els.gNum.textContent = S.slabGrade;
+    els.gName.textContent = (GNAME[S.slabGrade] || "") + (S.qual ? " (" + S.qual + ")" : "");
+    els.gSub.textContent = "Value uses comps for this grade. The scan below is for reference only.";
+  }
+  const cen = gm.cen;
+  els.cVal.textContent = cen ? `${Math.round(cen.lr)}/${Math.round(100-cen.lr)} L-R · ${Math.round(cen.tb)}/${Math.round(100-cen.tb)} T-B → max PSA ${gm.cap}` : "–";
+  els.cChip.className = chipClass(cen ? cen.src : "Assumed"); els.cChip.textContent = cen ? cen.src : "–";
+  for (const [k, sl, o, ch] of [["corners", els.sCorners, els.oCorners, els.chCorners], ["edges", els.sEdges, els.oEdges, els.chEdges], ["surface", els.sSurface, els.oSurface, els.chSurface]]){
+    const sv = gm.sub[k];
+    if (document.activeElement !== sl) sl.value = round05(sv.v);
+    o.textContent = round05(sv.v).toFixed(1).replace(".0", "");
+    ch.className = chipClass(sv.src); ch.textContent = sv.src;
+  }
+  renderMeasurements(gm);
+  renderPrices(card);
+  const link = "https://www.ebay.com/sch/i.html?_nkw=" + encodeURIComponent(card.id === "custom" ? "michael jordan psa" : card.name.replace(/-\d\d /, " ") + " Michael Jordan PSA") + "&LH_Sold=1&LH_Complete=1";
+  els.compsLink.href = link;
+}
+function distRow(label, p, maxP, price, top, noTen){
+  const r = document.createElement("div"); r.className = "drow" + (top ? " top" : "");
+  const a = document.createElement("span"); a.textContent = label;
+  const bar = document.createElement("span"); bar.className = "dbar"; const i = document.createElement("i"); i.style.width = (maxP ? 100*p/maxP : 0) + "%"; bar.append(i);
+  const c = document.createElement("span"); c.className = "dp"; c.textContent = pct(p);
+  const d = document.createElement("span"); d.className = "dv"; d.textContent = usd(price); if (noTen) d.title = "No reliable PSA 10 comps; valued as a PSA 9";
+  r.append(a, bar, c, d); return r;
+}
+
+function renderMeasurements(gm){
+  const A = S.an; if (!A) return;
+  const rows = [];
+  const cen = gm.cen;
+  rows.push(["Centering", cen && !cen.unknown ? `${Math.round(cen.lr)}/${Math.round(100-cen.lr)} left-right, ${Math.round(cen.tb)}/${Math.round(100-cen.tb)} top-bottom` : "Border not found. Drag the blue lines to the inside of the border."]);
+  if (A.corners){
+    const c = A.corners, f = (k) => `${c[k].g}`;
+    rows.push(["Corners", `TL ${f("tl")} · TR ${f("tr")} · BL ${f("bl")} · BR ${f("br")}`]);
+  } else rows.push(["Corners", "Not measured (no background around the card)"]);
+  if (A.edges){
+    const n = A.edges.notches.length;
+    rows.push(["Edges", `${n ? n + (n === 1 ? " nick or dent" : " nicks or dents") : "No nicks found"} · roughness ${A.edges.roughPct.toFixed(2)}% of width` + (A.edges.whiteFrac != null ? ` · whitening ${(A.edges.whiteFrac*100).toFixed(1)}%` : "")]);
+  } else rows.push(["Edges", "Not measured (no background around the card)"]);
+  rows.push(["Print + surface", A.surface.speck != null ? `Border specks ${(A.surface.speck*100).toFixed(2)}% of border area` : "Border too thin or busy to check for specks"]);
+  rows.push(["Image", `Card ${Math.round(A.cardW/A.sc)}×${Math.round(A.cardH/A.sc)} px · ${A.Q > 0.65 ? "good detail" : A.Q > 0.35 ? "fair detail" : "low detail"} · tilt ${A.tilt.toFixed(1)}°`]);
+  els.meas.innerHTML = "";
+  for (const [k, v] of rows){ els.meas.append(Object.assign(document.createElement("dt"), {textContent:k}), Object.assign(document.createElement("dd"), {textContent:v})); }
+
+  const flags = [];
+  if (S.mode === "raw" && cen && !cen.unknown && gm.cap < 10) flags.push([gm.cap <= 7 ? "bad" : "warn", `Centering alone caps the front at PSA ${gm.cap} (PSA ${gm.cap} allows ${PSA.find(p => p.g === gm.cap).front}; PSA 10 needs 55/45).`]);
+  if (A.corners){
+    const names = {tl:"top-left", tr:"top-right", bl:"bottom-left", br:"bottom-right"};
+    for (const k in A.corners) if (A.corners[k].g <= 8) flags.push([A.corners[k].g <= 6.5 ? "bad" : "warn", `The ${names[k]} corner looks ${A.corners[k].g <= 6.5 ? "rounded" : "soft"}.`]);
+  }
+  if (A.edges && A.edges.notches.length){
+    const sides = {L:"left", R:"right", T:"top", B:"bottom"};
+    const where = [...new Set(A.edges.notches.map(n => sides[n.side]))].join(", ");
+    flags.push(["warn", `Possible chip or dent on the ${where} edge.`]);
+  }
+  if (A.tone.white) flags.push(["", "White border: edge whitening doesn't show on the front. Check the back."]);
+  if (A.surface.glareFrac > 0.05) flags.push(["warn", "Glare covers part of the photo, so surface flaws may be hidden."]);
+  if (A.Q < 0.35) flags.push(["warn", "Low-detail image. The grade range is wide; ask the seller for a scan or zoom in on the listing first."]);
+  if (A.tight) flags.push(["", "Image treated as cropped to the card edge, so corners and edges can't be measured."]);
+  els.flags.innerHTML = "";
+  for (const [c, t] of flags){ const li = document.createElement("li"); if (c) li.className = c; li.textContent = t; els.flags.append(li); }
+}
+
+function renderPrices(card){
+  els.priceSrc.textContent = card.src;
+  const list = priceList(card), body = els.pBody;
+  if (body.dataset.card === card.id && body.contains(document.activeElement)) return;
+  body.dataset.card = card.id; body.innerHTML = "";
+  for (let g = 10; g >= 1; g--){
+    const tr = document.createElement("tr");
+    const th = document.createElement("th"); th.textContent = `PSA ${g} ${GNAME[g]}`;
+    const td = document.createElement("td"); const inp = document.createElement("input");
+    inp.id = `price-${g}`; inp.inputMode = "decimal"; inp.dataset.g = g;
+    inp.value = list[g-1] != null ? list[g-1] : ""; inp.placeholder = list[g-1] == null ? "no reliable comps" : "";
+    inp.setAttribute("aria-label", `Price for PSA ${g}`);
+    td.append(inp); tr.append(th, td); body.append(tr);
+  }
+}
+
+function renderStandards(){
+  for (const p of PSA){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<th>PSA ${p.g} ${p.name}</th><td class="c">${p.front}</td><td class="c">${p.back}</td><td></td>`;
+    tr.lastChild.textContent = p.text;
+    els.stdBody.append(tr);
+  }
+}
+
+/* ===================== Canvas: view + guides ===================== */
+let viewK = 1, drag = null, rafPending = false;
+function scheduleDraw(){ if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawView(); }); }
+function drawView(){
+  const A = S.an; if (!A) return;
+  const cv = els.view, st = els.stage;
+  const availW = Math.max(120, st.clientWidth - 22);
+  const availH = Math.max(260, Math.min(window.innerHeight * 0.66, 760));
+  const k = Math.min(availW / A.W, availH / A.H);
+  const w = Math.max(1, Math.floor(A.W*k)), h = Math.max(1, Math.floor(A.H*k));
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
+  cv.style.width = w + "px"; cv.style.height = h + "px";
+  viewK = k;
+  const g = cv.getContext("2d");
+  g.setTransform(1,0,0,1,0,0); g.clearRect(0, 0, cv.width, cv.height);
+  g.setTransform(dpr*k, 0, 0, dpr*k, 0, 0);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+  g.drawImage(S.src, A.offX, A.offY, A.W/A.sc, A.H/A.sc, 0, 0, A.W, A.H);
+  const Gd = S.guides, px = 1/k;
+  const cO = cssVar("--guide-outer") || "#E0115F", cI = cssVar("--guide-inner") || "#0A7CFF";
+  g.save(); g.globalAlpha = 0.16; g.fillStyle = cI;
+  g.fillRect(Gd.oL, Gd.oT, Gd.iL - Gd.oL, Gd.oB - Gd.oT);
+  g.fillRect(Gd.iR, Gd.oT, Gd.oR - Gd.iR, Gd.oB - Gd.oT);
+  g.fillRect(Gd.iL, Gd.oT, Gd.iR - Gd.iL, Gd.iT - Gd.oT);
+  g.fillRect(Gd.iL, Gd.iB, Gd.iR - Gd.iL, Gd.oB - Gd.iB);
+  g.restore();
+  const ext = 14*px;
+  const vline = (x, col, active) => { g.strokeStyle = col; g.lineWidth = (active ? 2.5 : 1.5)*px; g.beginPath(); g.moveTo(x, Gd.oT - ext); g.lineTo(x, Gd.oB + ext); g.stroke(); };
+  const hline = (y, col, active) => { g.strokeStyle = col; g.lineWidth = (active ? 2.5 : 1.5)*px; g.beginPath(); g.moveTo(Gd.oL - ext, y); g.lineTo(Gd.oR + ext, y); g.stroke(); };
+  for (const key of ["oL","oR"]) vline(Gd[key], cO, drag?.k === key);
+  for (const key of ["iL","iR"]) vline(Gd[key], cI, drag?.k === key);
+  for (const key of ["oT","oB"]) hline(Gd[key], cO, drag?.k === key);
+  for (const key of ["iT","iB"]) hline(Gd[key], cI, drag?.k === key);
+  const handle = (x, y, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, 4.5*px, 0, Math.PI*2); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.5*px; g.stroke(); };
+  const mx = (Gd.oL + Gd.oR)/2;
+  handle(Gd.oL, Gd.oT - ext, cO); handle(Gd.oR, Gd.oT - ext, cO); handle(Gd.oL - ext, Gd.oT, cO); handle(Gd.oL - ext, Gd.oB, cO);
+  handle(Gd.iL, Gd.oB + ext, cI); handle(Gd.iR, Gd.oB + ext, cI); handle(Gd.oR + ext, Gd.iT, cI); handle(Gd.oR + ext, Gd.iB, cI);
+  const sevCol = (gr) => gr >= 8.75 ? cssVar("--good") : gr >= 6.75 ? cssVar("--warn") : cssVar("--bad");
+  if (A.corners){
+    for (const key of ["tl","tr","bl","br"]){
+      const c = A.C[key]; g.strokeStyle = sevCol(A.corners[key].g); g.lineWidth = 2.5*px;
+      g.beginPath(); g.arc(c.x, c.y, 9*px, 0, Math.PI*2); g.stroke();
+    }
+  }
+  if (A.edges){
+    g.strokeStyle = cssVar("--bad"); g.lineWidth = 2.5*px;
+    for (const n of A.edges.notches){
+      const f = A.lines[n.side], e = f.a*n.t + f.b;
+      const [x, y] = SIDES[n.side].vert ? [e, n.t] : [n.t, e];
+      g.beginPath(); g.arc(x, y, 7*px, 0, Math.PI*2); g.stroke();
+    }
+  }
+  const cen = currentCentering();
+  if (cen && !cen.unknown){
+    const label = `${Math.round(cen.lr)}/${Math.round(100-cen.lr)} · ${Math.round(cen.tb)}/${Math.round(100-cen.tb)}`;
+    g.font = `600 ${12*px}px ${cssVar("--mono") || "monospace"}`;
+    const tw = g.measureText(label).width, bx = mx - tw/2 - 6*px, by = Math.max(2*px, Gd.oT - ext - 24*px);
+    g.fillStyle = "rgba(10,14,24,.78)"; g.fillRect(bx, by, tw + 12*px, 18*px);
+    g.fillStyle = "#fff"; g.textBaseline = "middle"; g.fillText(label, bx + 6*px, by + 9*px);
+  }
+}
+function drawCorners(){
+  const A = S.an; if (!A) return;
+  const figs = document.querySelectorAll(".corner"), keys = ["tl","tr","bl","br"];
+  const size = Math.max(24, A.cardW*0.11) / A.sc;
+  keys.forEach((key, idx) => {
+    const cv = figs[idx].querySelector("canvas"), g = cv.getContext("2d"), cap = figs[idx].querySelector("b");
+    const c = A.C[key], cx = A.offX + c.x/A.sc, cy = A.offY + c.y/A.sc;
+    const fx = key[1] === "l" ? 0.3 : 0.7, fy = key[0] === "t" ? 0.3 : 0.7;
+    g.clearRect(0, 0, cv.width, cv.height);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+    g.drawImage(S.src, cx - fx*size, cy - fy*size, size, size, 0, 0, cv.width, cv.height);
+    const gr = A.corners ? A.corners[key].g : null;
+    cap.textContent = gr == null ? "n/a" : String(gr);
+    cap.className = sevClass(gr);
+    figs[idx].title = gr == null ? "Not measured" : `Missing corner ≈ ${A.corners[key].rPct.toFixed(2)}% of card width`;
+  });
+}
+function toWork(e){ const r = els.view.getBoundingClientRect(); return {x:(e.clientX - r.left)/viewK, y:(e.clientY - r.top)/viewK}; }
+function nearestGuide(p){
+  const Gd = S.guides, tol = 14/viewK, pad = 24/viewK;
+  let best = null, bd = Infinity;
+  for (const key of ["oL","iL","iR","oR"]){ if (p.y < Gd.oT - pad || p.y > Gd.oB + pad) continue; const d = Math.abs(p.x - Gd[key]); if (d < bd){ bd = d; best = key; } }
+  for (const key of ["oT","iT","iB","oB"]){ if (p.x < Gd.oL - pad || p.x > Gd.oR + pad) continue; const d = Math.abs(p.y - Gd[key]); if (d < bd){ bd = d; best = key; } }
+  return bd <= tol ? best : null;
+}
+els.view.addEventListener("pointerdown", (e) => {
+  if (!S.an) return;
+  const k = nearestGuide(toWork(e));
+  if (!k) return;
+  drag = {k}; els.view.setPointerCapture(e.pointerId); e.preventDefault(); scheduleDraw();
+});
+els.view.addEventListener("pointermove", (e) => {
+  if (!S.an) return;
+  const p = toWork(e);
+  if (!drag){ const k = nearestGuide(p); els.view.style.cursor = k ? (k.endsWith("L") || k.endsWith("R") ? "ew-resize" : "ns-resize") : "default"; return; }
+  const Gd = S.guides, m = 1;
+  const lim = {oL:[-50, Gd.iL - m], iL:[Gd.oL + m, Gd.iR - 4], iR:[Gd.iL + 4, Gd.oR - m], oR:[Gd.iR + m, S.an.W + 50],
+               oT:[-50, Gd.iT - m], iT:[Gd.oT + m, Gd.iB - 4], iB:[Gd.iT + 4, Gd.oB - m], oB:[Gd.iB + m, S.an.H + 50]}[drag.k];
+  const val = drag.k.endsWith("L") || drag.k.endsWith("R") ? p.x : p.y;
+  Gd[drag.k] = clamp(val, lim[0], lim[1]);
+  S.guidesEdited = true;
+  scheduleDraw(); update();
+});
+const endDrag = () => { if (drag){ drag = null; scheduleDraw(); } };
+els.view.addEventListener("pointerup", endDrag);
+els.view.addEventListener("pointercancel", endDrag);
+window.addEventListener("resize", scheduleDraw);
+if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", scheduleDraw);
+new MutationObserver(scheduleDraw).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+
+/* ===================== Loading images ===================== */
+function runAnalysis(){
+  S.an = analyzeImage(S.src, S.srcW, S.srcH, S.tightForce);
+  S.guides = {...S.an.guides0}; S.guidesEdited = false;
+  els.tightChk.checked = S.an.tight;
+  els.timing.textContent = `Scanned in ${Math.round(S.an.ms)} ms`;
+  drawCorners(); scheduleDraw(); update();
+}
+function setSource(src, w, h, file, isSample){
+  S.src = src; S.srcW = w; S.srcH = h; S.file = file; S.isSample = isSample; S.token++;
+  S.tightForce = null; S.manual = {}; S.ai = null; S.userPickedCard = false;
+  S.bid.cur = null; els.bCur.value = "";
+  aiCtl?.abort();
+  els.stageNote.hidden = !isSample;
+  renderAI("idle");
+  runAnalysis();
+  if (!isSample && S.autoAsk && sampleFn) askClaude();
+}
+async function loadBlob(blob){
+  if (!blob || !/^image\//.test(blob.type || "image/")) return;
+  let bmp = null;
+  try { bmp = await createImageBitmap(blob); }
+  catch {
+    bmp = await new Promise((res) => { const url = URL.createObjectURL(blob), im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = url; });
+  }
+  if (!bmp){ els.timing.textContent = "That file isn't an image this browser can read. Try a PNG or JPG screenshot."; return; }
+  setSource(bmp, bmp.width || bmp.naturalWidth, bmp.height || bmp.naturalHeight, blob, false);
+}
+document.addEventListener("paste", (e) => {
+  const dt = e.clipboardData; if (!dt) return;
+  const files = [...(dt.files || [])].filter(f => f.type.startsWith("image/"));
+  let f = files[0];
+  if (!f) for (const it of dt.items || []) if (it.kind === "file" && it.type.startsWith("image/")){ f = it.getAsFile(); if (f) break; }
+  if (f){ e.preventDefault(); loadBlob(f); }
+});
+["dragenter","dragover"].forEach(t => window.addEventListener(t, (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")){ e.preventDefault(); els.stage.classList.add("drop"); } }));
+["dragleave","drop"].forEach(t => window.addEventListener(t, () => els.stage.classList.remove("drop")));
+window.addEventListener("drop", (e) => { const f = [...(e.dataTransfer?.files || [])].find(f => f.type.startsWith("image/")); if (f){ e.preventDefault(); loadBlob(f); } });
+els.file.addEventListener("change", () => { const f = els.file.files[0]; if (f) loadBlob(f); els.file.value = ""; });
+$("#uploadBtn").addEventListener("click", () => els.file.click());
+$("#pickBtn").addEventListener("click", () => els.file.click());
+els.tightChk.addEventListener("change", () => { S.tightForce = els.tightChk.checked; runAnalysis(); });
+$("#resetGuides").addEventListener("click", () => { if (!S.an) return; S.guides = {...S.an.guides0}; S.guidesEdited = false; scheduleDraw(); update(); });
+
+/* ===================== Card picker ===================== */
+let listIdx = 0, listItems = [];
+function matchCards(q){
+  const toks = q.toLowerCase().replace(/[#.,-]/g, " ").split(/\s+/).filter(Boolean);
+  if (!toks.length) return CARDS;
+  return CARDS.filter(c => { const hay = (c.keys + " " + c.name.toLowerCase()).replace(/[#.,-]/g, " "); return toks.every(t => hay.includes(t)); });
+}
+function openList(){
+  listItems = matchCards(els.q.value);
+  listIdx = Math.max(0, listItems.findIndex(c => c.id === S.cardId));
+  if (listIdx < 0 || els.q.value) listIdx = 0;
+  els.qList.innerHTML = "";
+  listItems.forEach((c, i) => {
+    const li = document.createElement("li"); li.setAttribute("role", "option"); li.id = "opt-" + c.id; li.setAttribute("aria-selected", i === listIdx);
+    const t = document.createElement("span"); t.className = "lt"; t.textContent = c.name;
+    const sm = document.createElement("small"); sm.textContent = c.tag + " · " + c.rarity; t.append(sm);
+    const p = document.createElement("span"); p.className = "lp";
+    const l = priceList(c); p.textContent = `10: ${l[9] != null ? usd(l[9]) : "n/a"} · 9: ${usd(l[8])}`;
+    li.append(t, p);
+    li.addEventListener("mousedown", (e) => { e.preventDefault(); pickCard(c.id); });
+    els.qList.append(li);
+  });
+  if (!listItems.length){ const li = document.createElement("li"); li.textContent = "No match. Pick \"Other Jordan card\" and type your own comps."; els.qList.append(li); }
+  els.qList.hidden = false; els.q.setAttribute("aria-expanded", "true");
+}
+function closeList(){ els.qList.hidden = true; els.q.setAttribute("aria-expanded", "false"); }
+function pickCard(id){ S.cardId = id; S.userPickedCard = true; els.q.value = ""; closeList(); els.q.blur(); update(); }
+function moveSel(d){
+  if (!listItems.length) return;
+  listIdx = (listIdx + d + listItems.length) % listItems.length;
+  [...els.qList.children].forEach((li, i) => li.setAttribute("aria-selected", i === listIdx));
+  els.qList.children[listIdx]?.scrollIntoView({block:"nearest"});
+}
+els.q.addEventListener("focus", openList);
+els.q.addEventListener("input", openList);
+els.q.addEventListener("blur", () => setTimeout(closeList, 120));
+els.q.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown"){ e.preventDefault(); if (els.qList.hidden) openList(); else moveSel(1); }
+  else if (e.key === "ArrowUp"){ e.preventDefault(); moveSel(-1); }
+  else if (e.key === "Enter"){ e.preventDefault(); if (listItems[listIdx]) pickCard(listItems[listIdx].id); }
+  else if (e.key === "Escape"){ closeList(); els.q.blur(); }
+});
+
+/* ===================== Inputs ===================== */
+for (const g of [10,9,8.5,8,7.5,7,6.5,6,5.5,5,4.5,4,3.5,3,2.5,2,1.5,1]){ const o = document.createElement("option"); o.value = g; o.textContent = `${g} ${GNAME[g]}`; els.slabGrade.append(o); }
+els.slabGrade.value = S.slabGrade;
+document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", () => { setMode(r.value); }));
+function setMode(m){ S.mode = m; $("#modeRaw").checked = m === "raw"; $("#modeSlab").checked = m === "slab"; els.slabCtl.hidden = m !== "slab"; update(); }
+els.slabGrade.addEventListener("change", () => { S.slabGrade = parseFloat(els.slabGrade.value); update(); });
+els.qual.addEventListener("change", () => { S.qual = els.qual.value; update(); });
+const bidFields = [["bCur","cur"],["bBp","bp"],["bTax","tax"],["bShip","ship"],["bFee","fee"],["bMargin","margin"]];
+for (const [id, key] of bidFields){
+  const el = els[id];
+  if (key !== "cur" && key !== "fee") el.value = S.bid[key];
+  el.addEventListener("input", () => { const v = num(el.value); S.bid[key] = v == null ? (key === "cur" || key === "fee" ? null : 0) : Math.max(0, v); saveSettings(); update(); });
+}
+els.bBasis.value = S.bid.basis;
+els.bBasis.addEventListener("change", () => { S.bid.basis = els.bBasis.value; saveSettings(); update(); });
+for (const [k, sl] of [["corners", els.sCorners], ["edges", els.sEdges], ["surface", els.sSurface]]){
+  sl.addEventListener("input", () => { S.manual[k] = parseFloat(sl.value); update(); });
+}
+$("#resetSubs").addEventListener("click", () => { S.manual = {}; update(); });
+els.pBody.addEventListener("input", (e) => {
+  const inp = e.target.closest("input[data-g]"); if (!inp) return;
+  const g = +inp.dataset.g, v = num(inp.value), o = S.prices[S.cardId] || (S.prices[S.cardId] = {});
+  if (v == null) delete o[g]; else o[g] = v;
+  store.set("jca.prices", S.prices); update();
+});
+$("#resetPrices").addEventListener("click", () => { delete S.prices[S.cardId]; store.set("jca.prices", S.prices); els.pBody.dataset.card = ""; update(); });
+
+document.addEventListener("keydown", (e) => {
+  const t = e.target, typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "/"){ e.preventDefault(); els.q.focus(); els.q.select(); }
+  else if (e.key === "a" || e.key === "A"){ e.preventDefault(); askClaude(); }
+  else if (e.key === "u" || e.key === "U"){ e.preventDefault(); els.file.click(); }
+});
+
+/* ===================== Claude check ===================== */
+let sampleFn = null, imgLimits = null, aiCtl = null, aiTimer = null, aiOff = null;
+els.autoAsk.checked = S.autoAsk; els.tier.value = S.tier;
+els.autoAsk.addEventListener("change", () => { S.autoAsk = els.autoAsk.checked; saveSettings(); });
+els.tier.addEventListener("change", () => { S.tier = els.tier.value; saveSettings(); });
+els.askBtn.addEventListener("click", askClaude);
+els.stopBtn.addEventListener("click", () => aiCtl?.abort());
+
+function renderAI(state, msg){
+  const st = els.aiState, avail = !!sampleFn;
+  if (!avail && aiOff && state === "idle") state = "off";
+  if (msg == null && state === "off") msg = aiOff;
+  if (msg == null && state === "idle" && avail) msg = S.isSample
+    ? "Paste a screenshot and Claude will name the card, read any slab label, and grade the surface. Usually a few seconds on Fast."
+    : "Press A to have Claude check this screenshot.";
+  els.askBtn.disabled = !avail || S.isSample || state === "busy";
+  els.stopBtn.hidden = state !== "busy";
+  els.autoAsk.disabled = !avail; els.tier.disabled = !avail;
+  if (state === "busy"){ st.className = "chip blue"; st.innerHTML = '<span class="spin" aria-hidden="true"></span>Looking'; }
+  else if (state === "done"){ st.className = "chip good"; st.textContent = "Done"; }
+  else if (state === "error"){ st.className = "chip red"; st.textContent = "No answer"; }
+  else if (state === "off"){ st.className = "chip"; st.textContent = "Unavailable"; }
+  else { st.className = "chip"; st.textContent = avail ? (S.isSample ? "Waiting for a screenshot" : "Ready") : "Checking"; }
+  if (msg != null) els.aiMsg.textContent = msg;
+  if (state !== "done" && state !== "busy") els.aiFinds.innerHTML = "";
+}
+function aiError(e){
+  switch (e && e.code){
+    case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed":
+      sampleFn = null; aiOff = "Claude isn't allowed in this view. The scan still works; pick the card by hand."; return ["off", aiOff];
+    case "images_unavailable": sampleFn = null; aiOff = "Claude can't look at images in this view. The scan still works."; return ["off", aiOff];
+    case "rate_limited": return ["error", "Too many requests just now. Wait a minute, then press A again."];
+    case "image_rejected": return ["error", "Claude couldn't read that image. Try a PNG or JPG screenshot under 20 MB."];
+    case "invalid_json": return ["error", "Claude's answer came back garbled. Press A to try again."];
+    case "refused": return ["error", "Claude declined to read this image."];
+    case "session_expired": return ["error", "Your Claude session expired. Sign in again, then press A."];
+    default: return ["error", "Claude didn't answer. Press A to try again."];
+  }
+}
+function toBlob(canvas, type, q){ return new Promise((res) => canvas.toBlob((b) => res(b), type, q)); }
+function drawTo(maxSide, sx, sy, sw, sh){
+  const k = Math.min(1, maxSide / Math.max(sw, sh)), c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(sw*k)); c.height = Math.max(1, Math.round(sh*k));
+  c.getContext("2d").drawImage(S.src, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+async function buildImages(){
+  const out = [], max = imgLimits?.maxCount || 1, types = imgLimits?.mediaTypes || ["image/png","image/jpeg"];
+  if (max >= 2 && S.an && !S.an.tight){
+    const Gd = S.guides, sc = S.an.sc, m = 0.04*S.an.cardW;
+    const x = Math.max(0, S.an.offX + (Gd.oL - m)/sc), y = Math.max(0, S.an.offY + (Gd.oT - m)/sc);
+    const w = Math.min(S.srcW - x, (Gd.oR - Gd.oL + 2*m)/sc), h = Math.min(S.srcH - y, (Gd.oB - Gd.oT + 2*m)/sc);
+    const crop = await toBlob(drawTo(1600, x, y, w, h), "image/jpeg", 0.92);
+    if (crop) out.push(crop);
+  }
+  let full = S.file;
+  if (!full || !types.includes(full.type) || (imgLimits?.maxInputBytes && full.size > imgLimits.maxInputBytes)) full = await toBlob(drawTo(2000, 0, 0, S.srcW, S.srcH), "image/jpeg", 0.9);
+  if (full) out.push(full);
+  return out;
+}
+function buildPrompt(nImages){
+  const list = CARDS.filter(c => c.id !== "custom").map(c => `- ${c.id}: ${c.name} (${c.tag})`).join("\n");
+  const imgs = nImages > 1 ? "Image 1 is the card as cropped by an automatic detector (the crop can be wrong). Image 2 is the full screenshot." : "The image is the full screenshot.";
+  return `You are helping a collector bid on a Michael Jordan basketball card. The images come from a screenshot of an online listing. ${imgs}
+
+1. Identify the card. Set card_id to one of these ids, or "other" if none match:
+${list}
+Refractors have a rainbow, mirror-like shine; base chrome cards do not.
+2. If the card is in a grading slab, read the grading company, the numeric grade and any qualifier (OC, ST, PD, OF, MK, MC) from the label.
+3. Grade what you can see on the PSA 1-10 scale, half points allowed, separately for corners, edges and surface (print defects, scratches, stains, creases, gloss):
+10 = four sharp corners, clean edges, no print defects; 9 = one very minor flaw; 8 = slight fraying on one or two corners or very light edge wear; 7 = slight fraying on several corners, slight surface wear; 6 = visible wear, slight edge notching; 5 = minor corner rounding, minor edge chipping; 4 = rounded corners, light crease possible; 3 or lower = heavy rounding, creases, heavy wear.
+A blurry or small image lowers grade_confidence, not the grade.
+4. Estimate front centering as left/right and top/bottom border ratios such as "60/40" (left or top share first), or null if you can't tell.
+5. If the screenshot shows the current bid or price in US dollars, give it as a number.
+
+Reply with only a JSON object shaped like this example:
+{"card_id":"86fleer57","id_confidence":0.9,"card_seen":"1986 Fleer Jordan, raw, on a black mat","slabbed":false,"grader":null,"slab_grade":null,"qualifier":null,"corners":8.5,"edges":8,"surface":8,"grade_confidence":0.5,"centering_lr":"60/40","centering_tb":"55/45","defects":["soft top-left corner"],"price_usd":1250,"counterfeit_risk":"low","note":"One short sentence for the bidder."}`;
+}
+async function askClaude(){
+  if (!sampleFn || S.isSample || !S.src) return;
+  aiCtl?.abort();
+  const ctl = new AbortController(), token = S.token, t0 = performance.now();
+  aiCtl = ctl;
+  renderAI("busy", "Claude is reading the screenshot…");
+  clearInterval(aiTimer);
+  aiTimer = setInterval(() => { if (aiCtl === ctl) els.aiMsg.textContent = `Claude is reading the screenshot… ${((performance.now() - t0)/1000).toFixed(0)} s`; }, 1000);
+  try {
+    const images = await buildImages();
+    const out = await sampleFn.json(buildPrompt(images.length), {images, modelTier: S.tier === "thorough" ? "default" : "quick", signal: ctl.signal});
+    if (token !== S.token) return;
+    applyAI(out, (performance.now() - t0)/1000);
+  } catch (e) {
+    if (e && e.code === "cancelled"){ if (token === S.token) renderAI("idle", "Stopped."); return; }
+    if (token !== S.token) return;
+    const [state, msg] = aiError(e); renderAI(state, msg);
+  } finally {
+    if (aiCtl === ctl){ clearInterval(aiTimer); aiCtl = null; els.stopBtn.hidden = true; }
+  }
+}
+function applyAI(o, secs){
+  if (!o || typeof o !== "object"){ renderAI("error", "Claude's answer came back empty. Press A to try again."); return; }
+  const g = (v) => { const n = num(v); return n == null ? null : clamp(round05(n), 1, 10); };
+  const ratio = (v) => { const m = /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/.exec(String(v ?? "")); if (!m) return null; const a = +m[1], b = +m[2]; return a + b > 0 ? clamp(100*a/(a+b), 0, 100) : null; };
+  const quals = ["OC","ST","PD","OF","MK","MC"];
+  const ai = {
+    cardId: byId[o.card_id] && o.card_id !== "custom" ? o.card_id : null,
+    idConf: clamp(num(o.id_confidence) ?? 0, 0, 1),
+    seen: typeof o.card_seen === "string" ? o.card_seen.slice(0, 140) : "",
+    slabbed: o.slabbed === true, grader: typeof o.grader === "string" ? o.grader.toUpperCase().slice(0, 8) : null,
+    slabGrade: g(o.slab_grade), qualifier: quals.includes(String(o.qualifier || "").toUpperCase()) ? String(o.qualifier).toUpperCase() : "",
+    corners: g(o.corners), edges: g(o.edges), surface: g(o.surface),
+    lr: ratio(o.centering_lr), tb: ratio(o.centering_tb),
+    defects: Array.isArray(o.defects) ? o.defects.filter(x => typeof x === "string").slice(0, 6).map(x => x.slice(0, 90)) : [],
+    price: num(o.price_usd), fake: typeof o.counterfeit_risk === "string" ? o.counterfeit_risk.toLowerCase() : "",
+    note: typeof o.note === "string" ? o.note.slice(0, 220) : ""
+  };
+  if (ai.slabbed){ ai.corners = ai.edges = ai.surface = null; }
+  S.ai = ai;
+  if (ai.cardId && ai.idConf >= 0.5 && !S.userPickedCard) S.cardId = ai.cardId;
+  if (ai.slabbed && ai.slabGrade != null){
+    const sg = ai.slabGrade >= 9 ? Math.floor(ai.slabGrade) : ai.slabGrade;
+    S.slabGrade = sg; els.slabGrade.value = sg; S.qual = ai.qualifier; els.qual.value = ai.qualifier;
+    setMode("slab");
+  } else if (!ai.slabbed && S.mode === "slab") setMode("raw");
+  if (ai.price != null && ai.price > 0 && S.bid.cur == null){ S.bid.cur = ai.price; els.bCur.value = ai.price; }
+  renderAI("done", `Answered in ${secs.toFixed(1)} s.` + (ai.note ? " " + ai.note : ""));
+  const finds = [];
+  const card = ai.cardId ? byId[ai.cardId] : null;
+  finds.push(["Card", card ? `${card.name} (${Math.round(ai.idConf*100)}% sure)` + (S.userPickedCard && ai.cardId !== S.cardId ? ". You picked a different card, so yours is kept." : "") : (ai.seen || "Not one of the cards in this list. Use \"Other Jordan card\".")]);
+  if (ai.slabbed) finds.push(["Slab", `${ai.grader || "Graded"} ${ai.slabGrade ?? "?"}${ai.qualifier ? " " + ai.qualifier : ""}` + (ai.grader && ai.grader !== "PSA" ? ". Prices here are PSA comps, so adjust for this grader." : "")]);
+  if (ai.defects.length) finds.push(["Flaws seen", ai.defects.join("; ")]);
+  if (ai.price != null) finds.push(["Listing price", usd(ai.price)]);
+  if (ai.fake === "medium" || ai.fake === "high") finds.push(["Counterfeit risk", ai.fake === "high" ? "High. Don't bid without a slab or a close-up of the print." : "Medium. Ask for close-ups of the print and back."]);
+  els.aiFinds.innerHTML = "";
+  for (const [k, v] of finds){ const li = document.createElement("li"); li.append(Object.assign(document.createElement("b"), {textContent: k + ": "}), v); els.aiFinds.append(li); }
+  update();
+}
+(async () => {
+  renderAI("idle");
+  const off = (m) => { sampleFn = null; aiOff = m; renderAI("off"); };
+  try {
+    if (!window.claude || typeof window.claude.use !== "function") return off("Open this page on claude.ai to have Claude identify cards and read slab labels. The scan works everywhere.");
+    const fn = await window.claude.use("sample");
+    if (!fn) return off("Claude isn't available in this view. The scan still works; pick the card by hand.");
+    const lim = await fn.limits().catch(() => null);
+    if (!lim || !lim.images) return off("Claude can't look at images in this view. The scan still works.");
+    sampleFn = fn; imgLimits = lim.images;
+    renderAI("idle");
+    if (!S.isSample && S.autoAsk) askClaude();
+  } catch { off("Claude isn't available in this view. The scan still works."); }
+})();
+
+/* ===================== Boot ===================== */
+renderStandards();
+setMode("raw");
+const sample = makeSample();
+setSource(sample, sample.width, sample.height, null, true);
+})();
+</script>
